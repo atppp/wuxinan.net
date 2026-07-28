@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Translator</title>
+  <style>
+    :root {
+      --ink: #1a1a1a;
+      --muted: #666;
+      --line: #ccc;
+      --hit: #ffe566;
+      --bg: #fafafa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 1.5rem;
+      font: 16px/1.4 Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+    h1 {
+      margin: 0 0 1rem;
+      font-size: 1.25rem;
+      font-weight: normal;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    #word {
+      width: min(100%, 28rem);
+      padding: 0.4rem 0.6rem;
+      font-size: 1.5rem;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+    #word:focus {
+      outline: 2px solid #888;
+      outline-offset: 1px;
+    }
+    #status {
+      margin: 0.75rem 0 1.25rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    section { margin-bottom: 2rem; }
+    section h2 {
+      margin: 0 0 0.5rem;
+      font-size: 1rem;
+      font-weight: normal;
+      color: var(--muted);
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      max-width: 60rem;
+      background: #fff;
+    }
+    td {
+      border: 1px solid var(--line);
+      padding: 0.25rem 0.5rem;
+      vertical-align: top;
+    }
+    td:nth-child(1) { white-space: nowrap; width: 1%; }
+    td:nth-child(2) { white-space: nowrap; width: 1%; color: var(--muted); }
+    tr.hit { background: var(--hit); }
+    hr {
+      border: none;
+      border-top: 1px solid var(--line);
+      margin: 1.5rem 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Translator</h1>
+  <form id="search-form">
+    <input type="text" id="word" name="word" autocomplete="off" autofocus disabled>
+  </form>
+  <p id="status">Loading dictionaries…</p>
+
+  <section>
+    <h2>Part 1</h2>
+    <div id="part1"></div>
+  </section>
+  <hr>
+  <section>
+    <h2>Part 2</h2>
+    <div id="part2"></div>
+  </section>
+
+  <script>
+    const BEFORE = 3;
+    const AFTER = 15; // exclusive upper bound offset, matching the old SQL window
+
+    /** @type {{word:string,country:string,translation:string}[]|null} */
+    let part1 = null;
+    /** @type {{word:string,country:string,translation:string}[]|null} */
+    let part2 = null;
+
+    const wordInput = document.getElementById("word");
+    const statusEl = document.getElementById("status");
+    const part1El = document.getElementById("part1");
+    const part2El = document.getElementById("part2");
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function parseTsv(text) {
+      const rows = [];
+      const lines = text.split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (line === "") continue;
+        let word, country, translation;
+        const tab1 = line.indexOf("\t");
+        if (tab1 < 0) {
+          word = line;
+          country = "";
+          translation = "";
+        } else {
+          const tab2 = line.indexOf("\t", tab1 + 1);
+          if (tab2 < 0) {
+            word = line.slice(0, tab1);
+            country = line.slice(tab1 + 1);
+            translation = "";
+          } else {
+            word = line.slice(0, tab1);
+            country = line.slice(tab1 + 1, tab2);
+            translation = line.slice(tab2 + 1);
+          }
+        }
+        // key: MySQL sorted by a case-insensitive collation; re-sort here for JS binary search.
+        rows.push({ word: word, country: country, translation: translation, key: word.toLowerCase() });
+      }
+      rows.sort(function (a, b) {
+        return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+      });
+      return rows;
+    }
+
+    // First index with non-empty word >= query (case-insensitive).
+    function findFirst(rows, query) {
+      const q = query.toLowerCase();
+      let lo = 0;
+      let hi = rows.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (rows[mid].key < q) lo = mid + 1;
+        else hi = mid;
+      }
+      while (lo < rows.length && rows[lo].word === "") lo++;
+      return lo < rows.length ? lo : -1;
+    }
+
+    function renderTable(rows, hitIndex) {
+      if (hitIndex < 0 || !rows.length) {
+        return "<p>No match.</p>";
+      }
+      const start = Math.max(0, hitIndex - BEFORE);
+      const end = Math.min(rows.length, hitIndex + AFTER);
+      let html = "<table>";
+      for (let i = start; i < end; i++) {
+        const r = rows[i];
+        const cls = i === hitIndex ? ' class="hit"' : "";
+        html +=
+          "<tr" + cls + ">" +
+          "<td>" + escapeHtml(r.word) + "</td>" +
+          "<td>" + escapeHtml(r.country) + "</td>" +
+          "<td>" + escapeHtml(r.translation) + "</td>" +
+          "</tr>";
+      }
+      html += "</table>";
+      return html;
+    }
+
+    function search() {
+      const q = wordInput.value;
+      if (!q || !part1 || !part2) return;
+      part1El.innerHTML = renderTable(part1, findFirst(part1, q));
+      part2El.innerHTML = renderTable(part2, findFirst(part2, q));
+    }
+
+    document.getElementById("search-form").addEventListener("submit", function (e) {
+      e.preventDefault();
+      search();
+    });
+
+    function loadTsvGz(url) {
+      return fetch(url).then(function (r) {
+        if (!r.ok) throw new Error("Failed to load " + url + " (" + r.status + ")");
+        if (!r.body || typeof DecompressionStream === "undefined") {
+          throw new Error("This browser cannot decompress gzip dictionaries.");
+        }
+        return new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).text();
+      });
+    }
+
+    Promise.all([loadTsvGz("part1.tsv.gz"), loadTsvGz("part2.tsv.gz")])
+      .then(function (texts) {
+        part1 = parseTsv(texts[0]);
+        part2 = parseTsv(texts[1]);
+        wordInput.disabled = false;
+        statusEl.textContent =
+          "Loaded " + part1.length.toLocaleString() + " + " +
+          part2.length.toLocaleString() + " entries. Type a word and press Enter.";
+        wordInput.focus();
+      })
+      .catch(function (err) {
+        statusEl.textContent = String(err.message || err);
+      });
+  </script>
+</body>
+</html>
