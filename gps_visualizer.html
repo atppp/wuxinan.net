@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPS Trace Visualizer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .upload-section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section.drag-over {
+            background: #f0f8ff;
+            border: 2px dashed #667eea;
+            transform: scale(1.02);
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin: 20px 0;
+        }
+
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .file-input-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 8px;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: inline-block;
+        }
+
+        .file-input-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .controls-section {
+            background: white;
+            border-radius: 12px;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .controls-section.show {
+            display: block;
+        }
+
+        .date-picker-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+
+        .source-filter {
+            padding: 6px 8px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 12px;
+            background: white;
+            transition: border-color 0.2s;
+            min-width: 80px;
+        }
+
+        .source-filter:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .date-picker-container label {
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .date-picker {
+            padding: 8px 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            transition: border-color 0.2s;
+            min-width: 120px;
+        }
+
+        .date-picker:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        /* Custom date picker styling for unavailable dates */
+        .date-picker[data-unavailable="true"] {
+            color: #999;
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+        
+        .nav-button {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            color: #495057;
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        
+        .nav-button:hover {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            border-color: #adb5bd;
+            transform: translateY(-1px);
+        }
+        
+        .nav-button:active {
+            transform: translateY(0);
+        }
+        
+        .nav-button:disabled {
+            background: #f8f9fa;
+            color: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        
+        .nav-button:disabled:hover {
+            transform: none;
+            background: #f8f9fa;
+            border-color: #dee2e6;
+        }
+
+        .current-date-display {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+
+        .trace-stats {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .trace-stat-item {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            text-align: center;
+        }
+
+        .trace-source-name {
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .trace-stats {
+            font-weight: 400;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .animation-controls {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .animation-controls h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        .source-animation-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            padding: 8px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+
+        .source-animation-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .source-name {
+            font-weight: 600;
+            color: #495057;
+            font-size: 13px;
+            min-width: 80px;
+        }
+
+        .play-button {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .play-button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+        }
+
+        .play-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .animation-progress {
+            flex: 1;
+            height: 4px;
+            background: #e9ecef;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 0 10px;
+        }
+
+        .animation-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+
+        .animation-time {
+            font-size: 11px;
+            color: #6c757d;
+            font-family: monospace;
+            min-width: 60px;
+            text-align: right;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+
+        .stat-item {
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .stat-label {
+            font-weight: 600;
+            color: #666;
+        }
+
+        .stat-value {
+            color: #333;
+            margin-left: 5px;
+        }
+
+        .map-container {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            height: 600px;
+            position: relative;
+        }
+        
+        .coordinate-display {
+            position: absolute;
+            bottom: 30px;
+            left: 30px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: monospace;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        
+        .coord-label {
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .coord-value {
+            color: #333;
+            margin-left: 8px;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff4444;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+            font-weight: 500;
+            max-width: 90%;
+            text-align: center;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .trace-info {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            color: #333;
+        }
+
+        .trace-info ul {
+            margin: 10px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+
+        .trace-info li {
+            margin: 8px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .trace-info li:before {
+            content: "•";
+            color: #667eea;
+            font-weight: bold;
+            position: absolute;
+            left: 0;
+        }
+
+        .trace-info ul ul {
+            margin: 5px 0 0 0;
+            padding-left: 20px;
+        }
+
+        .trace-info ul ul li:before {
+            content: "◦";
+            color: #999;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .date-picker-container {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+            
+            .date-nav-row {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: nowrap;
+            }
+            
+            .date-picker {
+                flex: 1;
+                min-width: 0;
+                max-width: 120px;
+                font-size: 14px;
+            }
+            
+            .nav-button {
+                padding: 8px 10px;
+                font-size: 16px;
+                min-width: 36px;
+                flex-shrink: 0;
+            }
+            
+            .current-date-display {
+                font-size: 12px;
+                text-align: center;
+                margin: 5px 0;
+            }
+            
+            .source-filter {
+                max-width: 100px;
+                font-size: 13px;
+                padding: 6px 6px;
+                flex-shrink: 0;
+            }
+            
+            .stats {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗺️ GPS Trace Visualizer</h1>
+        <p>Upload your GPS data JSON and explore your travels through time</p>
+    </div>
+
+    <div class="container">
+        <div class="upload-section" id="uploadSection">
+            <h2>Upload GPS Data</h2>
+            <p style="margin-top: 10px;">Select a JSON file produced by the GPS Merger</p>
+            <p style="margin-top: 10px; color: #666; font-size: 0.9em;">or drag and drop your JSON file here</p>
+            <div class="file-input-wrapper">
+                <input type="file" id="fileInput" class="file-input" accept=".json">
+                <button class="file-input-button">Choose JSON File</button>
+            </div>
+        </div>
+
+        <div class="controls-section" id="controlsSection">
+            <div class="date-picker-container">
+                <div class="date-nav-row">
+                    <button id="prevDayBtn" class="nav-button" title="Prev">
+                        ← 
+                    </button>
+                    <input type="date" id="datePicker" class="date-picker">
+                    <button id="nextDayBtn" class="nav-button" title="Next">
+                        →
+                    </button>
+                    <select id="sourceFilter" class="source-filter">
+                        <option value="all">All</option>
+                    </select>
+                </div>
+                <div id="currentDateDisplay" class="current-date-display"></div>
+                <div class="trace-stats" id="traceStatsContainer"></div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div>Loading GPS data...</div>
+            </div>
+            <div id="map"></div>
+            <div class="coordinate-display" id="coordinateDisplay">
+                <span class="coord-label">Mouse Position:</span>
+                <span class="coord-value" id="mouseCoords">Move mouse over map</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        class GPSVisualizer {
+            constructor() {
+                this.gpsData = [];
+                this.filteredGpsData = [];
+                this.availableDates = new Set();
+                this.filteredAvailableDates = new Set();
+                this.map = null;
+                this.currentTraces = [];
+                this.currentMarkers = [];
+                this.selectedSource = 'all';
+                this.initializeMap();
+                this.initializeEventListeners();
+            }
+
+            initializeMap() {
+                // Initialize map centered on a default location (Los Angeles)
+                this.map = L.map('map').setView([34.0522, -118.2437], 10);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(this.map);
+                
+                // Add mouse coordinate tracking
+                this.map.on('mousemove', (e) => {
+                    const lat = e.latlng.lat.toFixed(6);
+                    const lng = e.latlng.lng.toFixed(6);
+                    document.getElementById('mouseCoords').textContent = `${lat}, ${lng}`;
+                });
+                
+                this.map.on('mouseout', () => {
+                    document.getElementById('mouseCoords').textContent = 'Move mouse over map';
+                });
+            }
+
+            initializeEventListeners() {
+                const fileInput = document.getElementById('fileInput');
+                const datePicker = document.getElementById('datePicker');
+                const prevDayBtn = document.getElementById('prevDayBtn');
+                const nextDayBtn = document.getElementById('nextDayBtn');
+                const sourceFilter = document.getElementById('sourceFilter');
+                const uploadSection = document.getElementById('uploadSection');
+                
+                fileInput.addEventListener('change', this.handleFileUpload.bind(this));
+                prevDayBtn.addEventListener('click', this.navigateToPreviousDay.bind(this));
+                nextDayBtn.addEventListener('click', this.navigateToNextDay.bind(this));
+                datePicker.addEventListener('change', this.onDatePickerChange.bind(this));
+                sourceFilter.addEventListener('change', this.onSourceFilterChange.bind(this));
+                
+                // Drag and drop event listeners
+                uploadSection.addEventListener('dragover', this.handleDragOver.bind(this));
+                uploadSection.addEventListener('dragleave', this.handleDragLeave.bind(this));
+                uploadSection.addEventListener('drop', this.handleDrop.bind(this));
+            }
+
+            handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                this.processFile(file, 'Please select a JSON file.');
+            }
+
+            handleDragOver(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.currentTarget.classList.add('drag-over');
+            }
+
+            handleDragLeave(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.currentTarget.classList.remove('drag-over');
+            }
+
+            handleDrop(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                event.currentTarget.classList.remove('drag-over');
+
+                const files = event.dataTransfer.files;
+                if (files.length === 0) return;
+
+                const file = files[0];
+                this.processFile(file, 'Please drop a JSON file.');
+            }
+
+            processFile(file, errorMessage) {
+                if (!file.name.toLowerCase().endsWith('.json')) {
+                    this.showError(errorMessage);
+                    return;
+                }
+
+                this.showLoading(true);
+                this.readJSONFile(file);
+            }
+
+            readJSONFile(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        this.parseJSONData(e.target.result);
+                        this.showLoading(false);
+                        this.showControls();
+                    } catch (error) {
+                        this.showError('Error parsing JSON file: ' + error.message);
+                        this.showLoading(false);
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            parseJSONData(jsonText) {
+                const jsonData = JSON.parse(jsonText);
+                
+                if (typeof jsonData !== 'object' || Array.isArray(jsonData)) {
+                    throw new Error('Invalid JSON format. Expected object grouped by date and source.');
+                }
+
+                // Store the config and data separately
+                this.sourceConfig = jsonData.config;
+                this.isDroneData = jsonData.drone === true; // Store drone flag from JSON
+                this.gpsData = [];
+                this.availableDates.clear();
+                this.filteredOutCount = 0; // Track filtered out (0,0) coordinates
+
+                // Process each date from the data section
+                const dataSection = jsonData.data;
+                for (const localDate of Object.keys(dataSection)) {
+                    const daySources = dataSection[localDate];
+                    
+                    if (typeof daySources !== 'object' || Array.isArray(daySources)) {
+                        continue;
+                    }
+
+                    // Process each source in this date
+                    for (const source of Object.keys(daySources)) {
+                        const sourcePoints = daySources[source];
+                        
+                        if (!Array.isArray(sourcePoints)) {
+                            continue;
+                        }
+
+                        // Process each point in this (date, source)
+                        for (const point of sourcePoints) {
+                            // Validate point format [seconds_since_midnight, lat, lon]
+                            if (Array.isArray(point) && 
+                                point.length >= 3 && 
+                                typeof point[0] === 'number' && 
+                                typeof point[1] === 'number' && 
+                                typeof point[2] === 'number') {
+                                
+                                const secondsSinceMidnight = point[0];
+                                const latitude = point[1];
+                                const longitude = point[2];
+
+                                // Filter out invalid coordinates at (0,0)
+                                if (latitude === 0.0 && longitude === 0.0) {
+                                    this.filteredOutCount++;
+                                    continue;
+                                }
+
+                                this.gpsData.push({
+                                    secondsSinceMidnight: secondsSinceMidnight,
+                                    latitude: latitude,
+                                    longitude: longitude,
+                                    source: source,
+                                    localDate: localDate
+                                });
+                                this.availableDates.add(localDate);
+                            }
+                        }
+                    }
+                }
+
+                if (this.gpsData.length === 0) {
+                    throw new Error('No valid GPS data found in the file.');
+                }
+
+                this.populateSourceFilter();
+                this.applySourceFilter();
+                this.populateDatePicker();
+                this.showTraceInfo();
+            }
+
+
+            getDateRange() {
+                const dates = Array.from(this.filteredAvailableDates).sort();
+                return {
+                    start: dates[0],
+                    end: dates[dates.length - 1]
+                };
+            }
+
+            populateSourceFilter() {
+                const sourceFilter = document.getElementById('sourceFilter');
+                const config = this.getSourceConfig();
+                
+                // Clear existing options except "All"
+                sourceFilter.innerHTML = '<option value="all">All</option>';
+                
+                // Add all four sources from config
+                Object.keys(config.names).forEach(source => {
+                    const option = document.createElement('option');
+                    option.value = source;
+                    option.textContent = config.names[source];
+                    sourceFilter.appendChild(option);
+                });
+            }
+
+            onSourceFilterChange(event) {
+                this.selectedSource = event.target.value;
+                this.applySourceFilter();
+                this.populateDatePicker(true); // Preserve current value
+                
+                // Simply trigger a date change event for the current date
+                // This will let the existing date change logic handle finding the next available date
+                this.onDatePickerChange();
+            }
+
+            applySourceFilter() {
+                if (this.selectedSource === 'all') {
+                    this.filteredGpsData = [...this.gpsData];
+                    this.filteredAvailableDates = new Set(this.availableDates);
+                } else {
+                    this.filteredGpsData = this.gpsData.filter(point => point.source === this.selectedSource);
+                    this.filteredAvailableDates = new Set();
+                    this.filteredGpsData.forEach(point => {
+                        this.filteredAvailableDates.add(point.localDate);
+                    });
+                }
+            }
+
+            populateDatePicker(preserveCurrentValue = false) {
+                const datePicker = document.getElementById('datePicker');
+                const dates = Array.from(this.filteredAvailableDates).sort();
+                
+                // Set min and max dates to the full range
+                datePicker.min = dates[0];
+                datePicker.max = dates[dates.length - 1];
+                
+                // Only set default to last available date if not preserving current value
+                if (!preserveCurrentValue) {
+                    datePicker.value = dates[dates.length - 1];
+                }
+                
+                // Update navigation buttons
+                this.updateNavigationButtons();
+                
+                // Only automatically show trace if not preserving current value
+                if (!preserveCurrentValue) {
+                    this.showTraceForDate();
+                }
+            }
+
+            showControls() {
+                document.getElementById('controlsSection').classList.add('show');
+                this.hideUploadSection();
+            }
+
+            hideUploadSection() {
+                const uploadSection = document.getElementById('uploadSection');
+                if (uploadSection) {
+                    uploadSection.style.display = 'none';
+                }
+            }
+
+            showTraceForDate() {
+                const selectedDate = document.getElementById('datePicker').value;
+                if (!selectedDate) {
+                    this.showError('Please select a date.');
+                    return;
+                }
+
+                this.currentDate = selectedDate;
+                const dayData = this.filteredGpsData.filter(point => point.localDate === selectedDate);
+                
+                if (dayData.length === 0) {
+                    this.showError('No GPS data found for the selected date.');
+                    return;
+                }
+
+                // Group data by source
+                const tracesBySource = {};
+                dayData.forEach(point => {
+                    if (!tracesBySource[point.source]) {
+                        tracesBySource[point.source] = [];
+                    }
+                    tracesBySource[point.source].push(point);
+                });
+
+                this.displayMultipleTraces(tracesBySource, selectedDate);
+                this.updateStatsForMultipleTraces(tracesBySource, selectedDate);
+                this.updateNavigationButtons();
+            }
+
+            onDatePickerChange() {
+                const selectedDate = document.getElementById('datePicker').value;
+                const datePicker = document.getElementById('datePicker');
+                
+                // If selected date is not available, find the next available date
+                if (selectedDate && !this.filteredAvailableDates.has(selectedDate)) {
+                    // Convert Set to sorted array for finding next date
+                    const availableDatesArray = Array.from(this.filteredAvailableDates).sort();
+                    
+                    // Find the next available date after the selected date
+                    const nextAvailableDate = availableDatesArray.find(date => date > selectedDate);
+                    
+                    if (nextAvailableDate) {
+                        // Jump to the next available date
+                        datePicker.value = nextAvailableDate;
+                        this.currentDate = nextAvailableDate;
+                        this.showError(`No GPS data for ${selectedDate}. Showing next available date: ${nextAvailableDate}`);
+                    } else {
+                        // If no future date available, go to the last available date
+                        const lastAvailableDate = availableDatesArray[availableDatesArray.length - 1];
+                        datePicker.value = lastAvailableDate;
+                        this.currentDate = lastAvailableDate;
+                        this.showError(`No GPS data for ${selectedDate}. Showing last available date: ${lastAvailableDate}`);
+                    }
+                } else {
+                    // Clear any existing error messages when a valid date is selected
+                    this.clearError();
+                    this.currentDate = selectedDate;
+                }
+                
+                this.updateNavigationButtons();
+                this.showTraceForDate();
+            }
+
+            navigateToPreviousDay() {
+                const currentDate = document.getElementById('datePicker').value;
+                if (!currentDate) return;
+
+                const dates = Array.from(this.filteredAvailableDates).sort();
+                const currentIndex = dates.indexOf(currentDate);
+                
+                if (currentIndex > 0) {
+                    const prevDate = dates[currentIndex - 1];
+                    document.getElementById('datePicker').value = prevDate;
+                    // Manually trigger the change since programmatic changes don't fire the event
+                    this.onDatePickerChange();
+                }
+            }
+
+            navigateToNextDay() {
+                const currentDate = document.getElementById('datePicker').value;
+                if (!currentDate) return;
+
+                const dates = Array.from(this.filteredAvailableDates).sort();
+                const currentIndex = dates.indexOf(currentDate);
+                
+                if (currentIndex < dates.length - 1) {
+                    const nextDate = dates[currentIndex + 1];
+                    document.getElementById('datePicker').value = nextDate;
+                    // Manually trigger the change since programmatic changes don't fire the event
+                    this.onDatePickerChange();
+                }
+            }
+
+            updateNavigationButtons() {
+                const currentDate = document.getElementById('datePicker').value;
+                if (!currentDate) return;
+
+                const dates = Array.from(this.filteredAvailableDates).sort();
+                const currentIndex = dates.indexOf(currentDate);
+                
+                const prevBtn = document.getElementById('prevDayBtn');
+                const nextBtn = document.getElementById('nextDayBtn');
+                
+                // Enable/disable previous button
+                prevBtn.disabled = currentIndex <= 0;
+                
+                // Enable/disable next button
+                nextBtn.disabled = currentIndex >= dates.length - 1;
+            }
+
+            getSourceConfig() {
+                const colors = {};
+                const names = {};
+                
+                for (const [source, sourceConfig] of Object.entries(this.sourceConfig)) {
+                    if (sourceConfig && sourceConfig.color && sourceConfig.name) {
+                        colors[source] = sourceConfig.color;
+                        names[source] = sourceConfig.name;
+                    }
+                }
+                
+                return { colors, names };
+            }
+
+            displayMultipleTraces(tracesBySource, date) {
+                // Clear existing traces and markers
+                if (this.currentTraces) {
+                    this.currentTraces.forEach(trace => this.map.removeLayer(trace));
+                }
+                if (this.currentMarkers) {
+                    this.currentMarkers.forEach(marker => this.map.removeLayer(marker));
+                }
+
+                this.currentTraces = [];
+                this.currentMarkers = [];
+
+                const config = this.getSourceConfig();
+
+                // Create a trace for each source
+                Object.keys(tracesBySource).forEach(source => {
+                    const traceData = tracesBySource[source];
+                    
+                    // Sort by time
+                    traceData.sort((a, b) => a.secondsSinceMidnight - b.secondsSinceMidnight);
+
+                    const sourceName = config.names[source] || source;
+                    const sourceColor = config.colors[source] || '#667eea';
+
+                    // Get segments (single segment for non-drone, multiple for drone)
+                    const segments = this.splitTraceIntoSegments(traceData);
+
+                    segments.forEach((segment, segmentIndex) => {
+                        if (segment.length < 2) {
+                            // Handle single points with a "P" marker
+                            const point = segment[0];
+                            const marker = L.marker([point.latitude, point.longitude], {
+                                icon: L.divIcon({
+                                    className: 'single-point-marker',
+                                    html: '<div style="background-color: ' + sourceColor + '; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">P</div>',
+                                    iconSize: [20, 20],
+                                    iconAnchor: [10, 10]
+                                })
+                            }).addTo(this.map);
+                            this.currentTraces.push(marker);
+                            return;
+                        }
+
+                        // Create polyline for this segment
+                        const coordinates = segment.map(point => [point.latitude, point.longitude]);
+                        const trace = L.polyline(coordinates, {
+                            color: sourceColor,
+                            weight: 4,
+                            opacity: 0.8
+                        }).addTo(this.map);
+
+                        this.currentTraces.push(trace);
+
+                        // Add start marker for this segment
+                        const startPoint = segment[0];
+                        const startMarker = L.marker([startPoint.latitude, startPoint.longitude], {
+                            icon: L.divIcon({
+                                className: 'start-marker',
+                                html: `<div style="background: ${sourceColor}; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">S</div>`,
+                                iconSize: [20, 20]
+                            })
+                        }).addTo(this.map).bindPopup(`${sourceName} Start: ${this.formatTimeFromSeconds(startPoint.secondsSinceMidnight)}`);
+
+                        this.currentMarkers.push(startMarker);
+
+                        // Add end marker for this segment
+                        const endPoint = segment[segment.length - 1];
+                        const endMarker = L.marker([endPoint.latitude, endPoint.longitude], {
+                            icon: L.divIcon({
+                                className: 'end-marker',
+                                html: `<div style="background: ${sourceColor}; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">E</div>`,
+                                iconSize: [20, 20]
+                            })
+                        }).addTo(this.map).bindPopup(`${sourceName} End: ${this.formatTimeFromSeconds(endPoint.secondsSinceMidnight)}`);
+
+                        this.currentMarkers.push(endMarker);
+                    });
+                });
+
+                // Fit map to all traces bounds
+                if (this.currentTraces.length > 0) {
+                    const group = new L.featureGroup(this.currentTraces);
+                    this.map.fitBounds(group.getBounds(), { padding: [20, 20] });
+                }
+            }
+
+            splitTraceIntoSegments(traceData) {
+                if (traceData.length === 0) return [];
+                
+                // If not drone data, return the entire trace as a single segment
+                if (!this.isDroneData) {
+                    return [traceData];
+                }
+                
+                // For drone data, split into segments based on 60-second gaps
+                const segments = [];
+                let currentSegment = [traceData[0]];
+                
+                for (let i = 1; i < traceData.length; i++) {
+                    const currentPoint = traceData[i];
+                    const previousPoint = traceData[i - 1];
+                    const timeDiff = currentPoint.secondsSinceMidnight - previousPoint.secondsSinceMidnight;
+                    
+                    // If gap is 60 seconds or more, start a new segment
+                    if (timeDiff >= 60) {
+                        // End current segment and start new one
+                        segments.push([...currentSegment]);
+                        currentSegment = [currentPoint];
+                    } else {
+                        // Add to current segment
+                        currentSegment.push(currentPoint);
+                    }
+                }
+                
+                // Add the last segment
+                if (currentSegment.length > 0) {
+                    segments.push(currentSegment);
+                }
+                
+                return segments;
+            }
+
+            updateStatsForMultipleTraces(tracesBySource, date) {
+                const traceStatsContainer = document.getElementById('traceStatsContainer');
+                const currentDateDisplay = document.getElementById('currentDateDisplay');
+                
+                const config = this.getSourceConfig();
+
+                // Get weekday and update date display
+                const dateObj = new Date(date + 'T00:00:00');
+                const weekday = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+                currentDateDisplay.textContent = `${date} (${weekday})`;
+
+                let statsHTML = '';
+
+                // Calculate stats for each source
+                Object.keys(tracesBySource).forEach(source => {
+                    const traceData = tracesBySource[source];
+                    
+                    // Get segments (single segment for non-drone, multiple for drone)
+                    const segments = this.splitTraceIntoSegments(traceData);
+                    
+                    let totalDurationSeconds = 0;
+                    let totalPoints = 0;
+                    
+                    segments.forEach(segment => {
+                        if (segment.length >= 2) {
+                            const segmentStart = segment[0].secondsSinceMidnight;
+                            const segmentEnd = segment[segment.length - 1].secondsSinceMidnight;
+                            totalDurationSeconds += (segmentEnd - segmentStart);
+                        }
+                        // Count all points, including single points
+                        totalPoints += segment.length;
+                    });
+
+                    const sourceName = config.names[source] || source;
+                    const sourceColor = config.colors[source] || '#667eea';
+
+                    statsHTML += `
+                        <div class="trace-stat-item" style="border-left: 3px solid ${sourceColor};">
+                            <div class="trace-source-name">${sourceName}</div>
+                            <div class="trace-stats">${totalPoints.toLocaleString()} pts / ${this.formatDuration(totalDurationSeconds)}</div>
+                        </div>
+                    `;
+                });
+
+                traceStatsContainer.innerHTML = statsHTML;
+            }
+
+            calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371; // Earth's radius in kilometers
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                         Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
+            }
+
+            formatDuration(seconds) {
+                const totalHours = seconds / 3600; // Convert seconds to hours
+                
+                if (totalHours < 1) {
+                    // Less than 1 hour: display minutes
+                    const minutes = Math.round(seconds / 60);
+                    return `${minutes}m`;
+                } else {
+                    // 1 hour or more: display hours with 1 decimal point
+                    return `${totalHours.toFixed(1)}h`;
+                }
+            }
+
+            showTraceInfo() {
+                const dateRange = this.getDateRange();
+                
+                // Count points by source and calculate date ranges
+                const sourceData = {};
+                this.filteredGpsData.forEach(point => {
+                    if (!sourceData[point.source]) {
+                        sourceData[point.source] = {
+                            count: 0,
+                            dates: new Set()
+                        };
+                    }
+                    sourceData[point.source].count++;
+                    sourceData[point.source].dates.add(point.localDate);
+                });
+                
+                const config = this.getSourceConfig();
+                
+                let sourceInfo = '';
+                Object.keys(sourceData).forEach(source => {
+                    const sourceName = config.names[source] || source;
+                    const count = sourceData[source].count.toLocaleString();
+                    const dates = Array.from(sourceData[source].dates).sort();
+                    const dateRange = dates.length > 0 ? `${dates[0]} to ${dates[dates.length - 1]}` : 'No dates';
+                    sourceInfo += `<li><strong>${sourceName}:</strong> ${count} points (${dateRange})</li>`;
+                });
+                
+                const traceInfo = document.createElement('div');
+                traceInfo.className = 'trace-info';
+                traceInfo.innerHTML = `
+                    <p><strong>📊 Data Summary:</strong></p>
+                    <ul>
+                        <li>${this.filteredGpsData.length.toLocaleString()} total GPS points
+                            <ul>${sourceInfo}</ul>
+                        </li>
+                        <li>${this.filteredAvailableDates.size} unique days of data</li>
+                        <li>Date range: ${dateRange.start} to ${dateRange.end}</li>
+                        ${this.filteredOutCount > 0 ? `<li>🚫 Filtered out ${this.filteredOutCount.toLocaleString()} invalid coordinates at (0,0)</li>` : ''}
+                        <li>Select a date above to view your GPS trace for that day</li>
+                    </ul>
+                `;
+                document.querySelector('.container').appendChild(traceInfo);
+            }
+
+            showLoading(show) {
+                const loading = document.getElementById('loading');
+                if (show) {
+                    loading.classList.add('show');
+                } else {
+                    loading.classList.remove('show');
+                }
+            }
+
+            showError(message) {
+                const error = document.createElement('div');
+                error.className = 'error';
+                error.textContent = message;
+                
+                // Add click handler to dismiss the error
+                error.addEventListener('click', () => {
+                    error.remove();
+                });
+                
+                // Add cursor pointer to indicate it's clickable
+                error.style.cursor = 'pointer';
+                
+                // Remove existing errors
+                const existingErrors = document.querySelectorAll('.error');
+                existingErrors.forEach(err => err.remove());
+                
+                // Append to body for fixed positioning
+                document.body.appendChild(error);
+            }
+
+            clearError() {
+                // Remove all existing error messages
+                const existingErrors = document.querySelectorAll('.error');
+                existingErrors.forEach(err => err.remove());
+            }
+
+            formatTimeFromSeconds(secondsSinceMidnight) {
+                const hours = Math.floor(secondsSinceMidnight / 3600);
+                const minutes = Math.floor((secondsSinceMidnight % 3600) / 60);
+                const seconds = Math.floor(secondsSinceMidnight % 60);
+                
+                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+
+        }
+
+        // Initialize the visualizer when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new GPSVisualizer();
+        });
+    </script>
+</body>
+</html>

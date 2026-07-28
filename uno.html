@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>UNO Score</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            height: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(160deg, #c41e3a 0%, #1a1a2e 45%, #0f3460 100%);
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            color: #333;
+            -webkit-text-size-adjust: 100%;
+        }
+
+        .app {
+            height: 100%;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            padding: max(8px, env(safe-area-inset-top))
+                max(10px, env(safe-area-inset-right))
+                max(8px, env(safe-area-inset-bottom))
+                max(10px, env(safe-area-inset-left));
+            max-width: 480px;
+            margin: 0 auto;
+        }
+
+        .header {
+            flex-shrink: 0;
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 8px;
+            color: white;
+            margin-bottom: 8px;
+        }
+
+        .header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.25);
+        }
+
+        .header .subtitle {
+            font-size: 0.7rem;
+            opacity: 0.85;
+        }
+
+        .mode-selector {
+            flex-shrink: 0;
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .mode-selector label {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 6px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            border-radius: 8px;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .mode-selector label:has(input:checked) {
+            background: white;
+            color: #c41e3a;
+            border-color: white;
+        }
+
+        .mode-selector input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .game-container {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 14px;
+            padding: 10px 12px 8px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .play-area {
+            flex-shrink: 0;
+        }
+
+        .status {
+            text-align: center;
+            padding: 6px 8px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            color: #495057;
+            line-height: 1.3;
+        }
+
+        .status.game-over {
+            background: #f8d7da;
+            color: #842029;
+            font-weight: 600;
+        }
+
+        .players {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .players.mode-duo {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .player-card.inactive,
+        .zero-options label.inactive,
+        .round-input-group.inactive,
+        th.col-inactive,
+        td.col-inactive {
+            display: none !important;
+        }
+
+        .round-inputs.mode-duo {
+            grid-template-columns: 1fr;
+        }
+
+        .player-card {
+            text-align: center;
+            padding: 6px 4px;
+            border-radius: 8px;
+            background: #f8f9fa;
+            border: 2px solid transparent;
+        }
+
+        .player-card.dad {
+            border-color: #2563eb33;
+        }
+
+        .player-card.mom {
+            border-color: #db277733;
+        }
+
+        .player-card.olivia {
+            border-color: #16a34a33;
+        }
+
+        .player-card.loser {
+            background: #dc3545;
+            border-color: #b02a37;
+            color: white;
+        }
+
+        .player-name {
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-bottom: 2px;
+            opacity: 0.85;
+        }
+
+        .player-score {
+            font-size: 1.35rem;
+            font-weight: 700;
+            line-height: 1.1;
+            font-variant-numeric: tabular-nums;
+            cursor: pointer;
+            border-radius: 6px;
+            padding: 2px 4px;
+            margin: 0 -4px;
+        }
+
+        .player-score:hover {
+            background: rgba(0, 0, 0, 0.06);
+        }
+
+        .player-score:active {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .player-card.loser .player-score:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .player-card .goal-hint {
+            font-size: 0.6rem;
+            margin-top: 1px;
+            opacity: 0.55;
+        }
+
+        .round-form {
+            background: #f1f3f5;
+            border-radius: 10px;
+            padding: 10px;
+        }
+
+        .round-form h2 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #495057;
+        }
+
+        .zero-picker {
+            margin-bottom: 8px;
+        }
+
+        .zero-picker > span {
+            display: block;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: #6c757d;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .zero-options {
+            display: flex;
+            gap: 4px;
+        }
+
+        .zero-options label {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 7px 4px;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .zero-options label:has(input:checked) {
+            border-color: #c41e3a;
+            background: #fff5f5;
+            color: #c41e3a;
+        }
+
+        .zero-options input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .round-inputs {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .round-input-group.hidden {
+            display: none;
+        }
+
+        .round-input-group label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #6c757d;
+            margin-bottom: 3px;
+        }
+
+        .round-input-group input {
+            width: 100%;
+            padding: 10px 8px;
+            font-size: 16px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            -webkit-appearance: none;
+        }
+
+        .round-input-group input:focus {
+            outline: none;
+            border-color: #c41e3a;
+        }
+
+        .round-input-group input:disabled {
+            background: #e9ecef;
+            color: #868e96;
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 6px;
+        }
+
+        .actions:has(.btn-new-game.visible) {
+            grid-template-columns: 1fr;
+        }
+
+        button {
+            padding: 11px 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        button:active:not(:disabled) {
+            opacity: 0.85;
+        }
+
+        button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .btn-add {
+            background: #c41e3a;
+            color: white;
+        }
+
+        .btn-undo {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-new-game {
+            background: #198754;
+            color: white;
+            display: none;
+        }
+
+        .btn-new-game.visible {
+            display: block;
+            grid-column: 1 / -1;
+        }
+
+        .history {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .history h2 {
+            flex-shrink: 0;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #868e96;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .history-scroll {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-variant-numeric: tabular-nums;
+            font-size: 0.75rem;
+        }
+
+        th,
+        td {
+            padding: 6px 4px;
+            text-align: center;
+        }
+
+        th {
+            background: #343a40;
+            color: white;
+            font-size: 0.7rem;
+            position: sticky;
+            top: 0;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .empty-history {
+            padding: 12px;
+            text-align: center;
+            color: #868e96;
+            font-size: 0.8rem;
+        }
+
+        @media (min-width: 600px) {
+            .app {
+                padding: 20px;
+                max-width: 720px;
+            }
+
+            .header h1 {
+                font-size: 1.75rem;
+            }
+
+            .game-container {
+                padding: 20px;
+                border-radius: 18px;
+            }
+
+            .player-score {
+                font-size: 1.75rem;
+            }
+
+            .status {
+                font-size: 0.9rem;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <h1>UNO</h1>
+            <span class="subtitle">first to 500 loses</span>
+        </header>
+
+        <div class="mode-selector" id="mode-selector">
+            <label><input type="radio" name="game-mode" value="family" checked> Family</label>
+            <label><input type="radio" name="game-mode" value="duo"> Dad &amp; Olivia</label>
+        </div>
+
+        <main class="game-container">
+            <section class="play-area">
+                <p class="status" id="status">Round 1 — who went out?</p>
+
+                <div class="players" id="players">
+            <div class="player-card dad" id="card-dad">
+                <div class="player-name">Dad</div>
+                <div class="player-score" id="score-dad">0</div>
+                <div class="goal-hint">/ 500</div>
+            </div>
+            <div class="player-card mom" id="card-mom">
+                <div class="player-name">Mom</div>
+                <div class="player-score" id="score-mom">0</div>
+                <div class="goal-hint">/ 500</div>
+            </div>
+            <div class="player-card olivia" id="card-olivia">
+                <div class="player-name">Olivia</div>
+                <div class="player-score" id="score-olivia">0</div>
+                <div class="goal-hint">/ 500</div>
+            </div>
+                </div>
+
+                <form class="round-form" id="round-form">
+            <div class="zero-picker">
+                <span>Went out (0 pts)</span>
+                <div class="zero-options" id="zero-options">
+                    <label data-player="dad"><input type="radio" name="zero-player" value="dad" checked> Dad</label>
+                    <label data-player="mom"><input type="radio" name="zero-player" value="mom"> Mom</label>
+                    <label data-player="olivia"><input type="radio" name="zero-player" value="olivia"> Olivia</label>
+                </div>
+            </div>
+            <div class="round-inputs" id="round-inputs">
+                <div class="round-input-group" id="group-dad" data-player="dad">
+                    <label for="input-dad">Dad</label>
+                    <input type="number" id="input-dad" min="0" step="1" inputmode="numeric" placeholder="0">
+                </div>
+                <div class="round-input-group" id="group-mom" data-player="mom">
+                    <label for="input-mom">Mom</label>
+                    <input type="number" id="input-mom" min="0" step="1" inputmode="numeric" placeholder="0">
+                </div>
+                <div class="round-input-group hidden" id="group-olivia" data-player="olivia">
+                    <label for="input-olivia">Olivia</label>
+                    <input type="number" id="input-olivia" min="0" step="1" inputmode="numeric" placeholder="0" disabled>
+                </div>
+            </div>
+            <div class="actions">
+                <button type="submit" class="btn-add" id="btn-add">Add round</button>
+                <button type="button" class="btn-undo" id="btn-undo" disabled>Undo</button>
+                <button type="button" class="btn-new-game" id="btn-new-game">New game</button>
+            </div>
+                </form>
+            </section>
+
+            <section class="history">
+                <h2>History</h2>
+                <div class="history-scroll">
+                <table id="history-table" hidden>
+                    <thead>
+                        <tr>
+                            <th>Round</th>
+                            <th class="col-dad">Dad</th>
+                            <th class="col-mom">Mom</th>
+                            <th class="col-olivia">Olivia</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body"></tbody>
+                </table>
+                    <div class="empty-history" id="empty-history">No rounds yet</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        const GOAL = 500;
+        const STORAGE_KEY = 'uno-score-v1';
+        const ALL_PLAYER_IDS = ['dad', 'mom', 'olivia'];
+        const DEFAULT_PLAYER_NAMES = { dad: 'Dad', mom: 'Mom', olivia: 'Olivia' };
+        const MODES = {
+            family: { id: 'family', label: 'Family', players: ['dad', 'mom', 'olivia'] },
+            duo: { id: 'duo', label: 'Dad & Olivia', players: ['dad', 'olivia'] },
+        };
+
+        let activeMode = 'family';
+        let playerNames = { ...DEFAULT_PLAYER_NAMES };
+        const modeState = {
+            family: { rounds: [], zeroPlayer: 'dad' },
+            duo: { rounds: [], zeroPlayer: 'dad' },
+        };
+        const rounds = [];
+        const totals = { dad: 0, mom: 0, olivia: 0 };
+
+        const statusEl = document.getElementById('status');
+        const roundForm = document.getElementById('round-form');
+        const btnAdd = document.getElementById('btn-add');
+        const btnUndo = document.getElementById('btn-undo');
+        const btnNewGame = document.getElementById('btn-new-game');
+        const historyTable = document.getElementById('history-table');
+        const historyBody = document.getElementById('history-body');
+        const emptyHistory = document.getElementById('empty-history');
+        const zeroOptions = document.getElementById('zero-options');
+        const modeSelector = document.getElementById('mode-selector');
+        const playersEl = document.getElementById('players');
+        const roundInputsEl = document.getElementById('round-inputs');
+
+        function playerLabel(id) {
+            return playerNames[id] || DEFAULT_PLAYER_NAMES[id] || id;
+        }
+
+        function duoModeLabel() {
+            return playerLabel('dad') + ' & ' + playerLabel('olivia');
+        }
+
+        function activePlayerIds() {
+            return MODES[activeMode].players;
+        }
+
+        function activePlayers() {
+            return activePlayerIds().map((id) => ({ id, label: playerLabel(id) }));
+        }
+
+        function normalizePlayerNames(raw) {
+            const names = { ...DEFAULT_PLAYER_NAMES };
+            if (!raw || typeof raw !== 'object') return names;
+            for (const id of ALL_PLAYER_IDS) {
+                const value = raw[id];
+                if (typeof value === 'string') {
+                    const trimmed = value.trim();
+                    if (trimmed) names[id] = trimmed.slice(0, 24);
+                }
+            }
+            return names;
+        }
+
+        function renderPlayerNames() {
+            for (const id of ALL_PLAYER_IDS) {
+                const label = playerLabel(id);
+                const card = document.getElementById('card-' + id);
+                card.querySelector('.player-name').textContent = label;
+                document.getElementById('score-' + id).title = 'Tap to rename';
+
+                const zeroLabel = document.querySelector('.zero-options label[data-player="' + id + '"]');
+                if (zeroLabel) {
+                    const radio = zeroLabel.querySelector('input');
+                    zeroLabel.textContent = '';
+                    zeroLabel.appendChild(radio);
+                    zeroLabel.appendChild(document.createTextNode(' ' + label));
+                }
+
+                const inputLabel = document.querySelector('#group-' + id + ' label');
+                if (inputLabel) inputLabel.textContent = label;
+
+                document.querySelectorAll('.col-' + id).forEach((el) => {
+                    if (el.tagName === 'TH') el.textContent = label;
+                });
+            }
+
+            const duoRadio = document.querySelector('input[name="game-mode"][value="duo"]');
+            if (duoRadio) {
+                const duoLabel = duoRadio.parentElement;
+                duoLabel.textContent = '';
+                duoLabel.appendChild(duoRadio);
+                duoLabel.appendChild(document.createTextNode(' ' + duoModeLabel()));
+            }
+        }
+
+        function renamePlayer(id) {
+            const current = playerLabel(id);
+            const next = prompt('Rename player:', current);
+            if (next === null) return;
+            const trimmed = next.trim();
+            if (!trimmed) {
+                alert('Name cannot be empty.');
+                return;
+            }
+            playerNames[id] = trimmed.slice(0, 24);
+            renderPlayerNames();
+            render();
+        }
+
+        function isActivePlayer(id) {
+            return activePlayerIds().includes(id);
+        }
+
+        function persistActiveMode() {
+            modeState[activeMode] = {
+                rounds: rounds.slice(),
+                zeroPlayer: getZeroPlayer(),
+            };
+        }
+
+        function syncRoundsFromMode() {
+            const saved = modeState[activeMode];
+            rounds.length = 0;
+            for (const round of saved.rounds) {
+                if (isValidRound(round)) rounds.push(round);
+            }
+            const zp = saved.zeroPlayer;
+            if (isActivePlayer(zp)) {
+                setZeroPlayer(zp);
+            } else {
+                setZeroPlayer(activePlayerIds()[0]);
+            }
+        }
+
+        function getZeroPlayer() {
+            const el = document.querySelector('input[name="zero-player"]:checked');
+            return el ? el.value : 'dad';
+        }
+
+        function setZeroPlayer(id) {
+            const radio = document.querySelector(
+                'input[name="zero-player"][value="' + id + '"]'
+            );
+            if (radio) radio.checked = true;
+        }
+
+        function recomputeTotals() {
+            for (const id of ALL_PLAYER_IDS) {
+                totals[id] = 0;
+            }
+            for (const round of rounds) {
+                for (const id of ALL_PLAYER_IDS) {
+                    totals[id] += round[id] || 0;
+                }
+            }
+        }
+
+        function normalizeRound(round, modeId) {
+            const mode = MODES[modeId || activeMode];
+            const out = {
+                n: round.n,
+                zero: round.zero,
+                dad: round.dad || 0,
+                mom: round.mom || 0,
+                olivia: round.olivia || 0,
+            };
+            if (!mode.players.includes(out.zero)) return null;
+            for (const id of ALL_PLAYER_IDS) {
+                if (!mode.players.includes(id)) out[id] = 0;
+            }
+            return out;
+        }
+
+        function isValidRound(round, modeId) {
+            if (!round || typeof round.n !== 'number' || !round.zero) return false;
+            const mode = MODES[modeId || activeMode];
+            if (!mode.players.includes(round.zero)) return false;
+            for (const id of ALL_PLAYER_IDS) {
+                const v = round[id] ?? 0;
+                if (!Number.isFinite(v) || v < 0 || !Number.isInteger(v)) return false;
+                if (!mode.players.includes(id) && v !== 0) return false;
+            }
+            return true;
+        }
+
+        function emptyModeSnapshot() {
+            return { rounds: [], zeroPlayer: 'dad' };
+        }
+
+        function saveState() {
+            persistActiveMode();
+            try {
+                localStorage.setItem(
+                    STORAGE_KEY,
+                    JSON.stringify({
+                        version: 2,
+                        activeMode,
+                        playerNames,
+                        modes: {
+                            family: modeState.family,
+                            duo: modeState.duo,
+                        },
+                    })
+                );
+            } catch (err) {
+                console.warn('Could not save game state', err);
+            }
+        }
+
+        function loadModeSnapshot(raw, modeId) {
+            if (!raw || !Array.isArray(raw.rounds)) return emptyModeSnapshot();
+            const valid = [];
+            for (const round of raw.rounds) {
+                const normalized = normalizeRound(round, modeId);
+                if (normalized && isValidRound(normalized, modeId)) valid.push(normalized);
+            }
+            const zp = raw.zeroPlayer;
+            const first = MODES[modeId].players[0];
+            return {
+                rounds: valid,
+                zeroPlayer: MODES[modeId].players.includes(zp) ? zp : first,
+            };
+        }
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+
+                if (data && data.modes) {
+                    activeMode = data.activeMode === 'duo' ? 'duo' : 'family';
+                    playerNames = normalizePlayerNames(data.playerNames);
+                    modeState.family = loadModeSnapshot(data.modes.family, 'family');
+                    modeState.duo = loadModeSnapshot(data.modes.duo, 'duo');
+                } else if (data && Array.isArray(data.rounds)) {
+                    modeState.family = loadModeSnapshot(data, 'family');
+                    modeState.duo = emptyModeSnapshot();
+                    activeMode = 'family';
+                } else {
+                    return;
+                }
+
+                const modeRadio = document.querySelector(
+                    'input[name="game-mode"][value="' + activeMode + '"]'
+                );
+                if (modeRadio) modeRadio.checked = true;
+                syncRoundsFromMode();
+                recomputeTotals();
+            } catch (err) {
+                console.warn('Could not load game state', err);
+            }
+        }
+
+        function resetActiveMode() {
+            modeState[activeMode] = emptyModeSnapshot();
+            rounds.length = 0;
+            setZeroPlayer(activePlayerIds()[0]);
+            recomputeTotals();
+        }
+
+        function applyModeUI() {
+            const duo = activeMode === 'duo';
+            playersEl.classList.toggle('mode-duo', duo);
+            roundInputsEl.classList.toggle('mode-duo', duo);
+
+            for (const id of ALL_PLAYER_IDS) {
+                const on = isActivePlayer(id);
+                document.getElementById('card-' + id).classList.toggle('inactive', !on);
+                document
+                    .querySelector('.zero-options label[data-player="' + id + '"]')
+                    .classList.toggle('inactive', !on);
+                document.getElementById('group-' + id).classList.toggle('inactive', !on);
+                document.querySelectorAll('.col-' + id).forEach((el) => {
+                    el.classList.toggle('col-inactive', !on);
+                });
+            }
+        }
+
+        function switchMode(modeId) {
+            if (modeId === activeMode || !MODES[modeId]) return;
+            persistActiveMode();
+            activeMode = modeId;
+            syncRoundsFromMode();
+            recomputeTotals();
+            applyModeUI();
+            clearInputs();
+            render();
+        }
+
+        function scorers() {
+            const zero = getZeroPlayer();
+            return activePlayers().filter((p) => p.id !== zero);
+        }
+
+        function updateRoundInputs() {
+            const zero = getZeroPlayer();
+            for (const id of ALL_PLAYER_IDS) {
+                const group = document.getElementById('group-' + id);
+                const input = document.getElementById('input-' + id);
+                if (!isActivePlayer(id)) continue;
+                const isZero = id === zero;
+                group.classList.toggle('hidden', isZero);
+                input.disabled = isZero || gameOver();
+                if (isZero) input.value = '';
+            }
+            if (!gameOver() && scorers()[0]) {
+                document.getElementById('input-' + scorers()[0].id).focus();
+            }
+        }
+
+        function parseInput(id) {
+            const raw = document.getElementById('input-' + id).value.trim();
+            if (raw === '') return 0;
+            const n = Number(raw);
+            if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+                return null;
+            }
+            return n;
+        }
+
+        function gameOver() {
+            return activePlayers().some((p) => totals[p.id] >= GOAL);
+        }
+
+        function losers() {
+            return activePlayers()
+                .filter((p) => totals[p.id] >= GOAL)
+                .map((p) => p.label);
+        }
+
+        function renderTotals() {
+            for (const id of ALL_PLAYER_IDS) {
+                document.getElementById('score-' + id).textContent = totals[id];
+                const card = document.getElementById('card-' + id);
+                card.classList.toggle('loser', isActivePlayer(id) && totals[id] >= GOAL);
+            }
+        }
+
+        function renderHistory() {
+            const hasRounds = rounds.length > 0;
+            historyTable.hidden = !hasRounds;
+            emptyHistory.hidden = hasRounds;
+            historyBody.innerHTML = '';
+
+            for (const round of rounds) {
+                const tr = document.createElement('tr');
+                const cell = (id) => {
+                    const cls = isActivePlayer(id) ? '' : ' col-inactive';
+                    if (!isActivePlayer(id)) return '';
+                    if (round.zero === id) return '<td class="col-' + id + '">—</td>';
+                    return '<td class="col-' + id + '">' + round[id] + '</td>';
+                };
+                tr.innerHTML =
+                    '<td>' + round.n + '</td>' + cell('dad') + cell('mom') + cell('olivia');
+                historyBody.appendChild(tr);
+            }
+        }
+
+        function setFormEnabled(enabled) {
+            zeroOptions.querySelectorAll('input').forEach((el) => {
+                el.disabled = !enabled;
+            });
+            btnAdd.disabled = !enabled;
+            updateRoundInputs();
+        }
+
+        function render() {
+            renderTotals();
+            renderHistory();
+
+            const over = gameOver();
+            setFormEnabled(!over);
+            btnUndo.disabled = rounds.length === 0;
+            btnNewGame.classList.toggle('visible', over);
+
+            if (over) {
+                statusEl.textContent = losers().join(' & ') + ' hit ' + GOAL;
+                statusEl.classList.add('game-over');
+            } else {
+                statusEl.textContent = 'Round ' + (rounds.length + 1) + ' — who went out?';
+                statusEl.classList.remove('game-over');
+            }
+            saveState();
+        }
+
+        function clearInputs() {
+            for (const id of ALL_PLAYER_IDS) {
+                document.getElementById('input-' + id).value = '';
+            }
+            updateRoundInputs();
+        }
+
+        modeSelector.addEventListener('change', (e) => {
+            if (e.target.name === 'game-mode') switchMode(e.target.value);
+        });
+
+        zeroOptions.addEventListener('change', () => {
+            if (!isActivePlayer(getZeroPlayer())) {
+                setZeroPlayer(activePlayerIds()[0]);
+            }
+            clearInputs();
+            saveState();
+        });
+
+        roundForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (gameOver()) return;
+
+            const zero = getZeroPlayer();
+            const round = { n: rounds.length + 1, zero, dad: 0, mom: 0, olivia: 0 };
+            for (const p of scorers()) {
+                const raw = document.getElementById('input-' + p.id).value.trim();
+                if (raw === '') {
+                    alert('Enter a score for ' + p.label + ' (0 if none).');
+                    document.getElementById('input-' + p.id).focus();
+                    return;
+                }
+                const value = parseInput(p.id);
+                if (value === null) {
+                    alert('Enter a whole number ≥ 0 for ' + p.label + '.');
+                    document.getElementById('input-' + p.id).focus();
+                    return;
+                }
+                round[p.id] = value;
+            }
+            rounds.push(round);
+            recomputeTotals();
+            clearInputs();
+            render();
+        });
+
+        btnUndo.addEventListener('click', () => {
+            if (rounds.length === 0) return;
+            if (!confirm('Undo the last round?')) return;
+            const last = rounds.pop();
+            recomputeTotals();
+            setZeroPlayer(last.zero);
+            render();
+        });
+
+        btnNewGame.addEventListener('click', () => {
+            const label = activeMode === 'duo' ? duoModeLabel() : MODES[activeMode].label;
+            if (!confirm('Start a new ' + label + ' game? Scores will reset.')) return;
+            resetActiveMode();
+            clearInputs();
+            render();
+        });
+
+        for (const id of ALL_PLAYER_IDS) {
+            document.getElementById('score-' + id).addEventListener('click', () => {
+                renamePlayer(id);
+            });
+        }
+
+        loadState();
+        renderPlayerNames();
+        applyModeUI();
+        render();
+        updateRoundInputs();
+    </script>
+</body>
+</html>

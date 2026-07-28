@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Tree Viewer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .upload-area {
+            border: 2px dashed #3498db;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            border-color: #2980b9;
+            background: #e3f2fd;
+        }
+        
+        .upload-area.dragover {
+            border-color: #27ae60;
+            background: #e8f5e8;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .tree-container {
+            padding: 20px;
+        }
+        
+        .tree {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .tree-item {
+            margin: 2px 0;
+        }
+        
+        .folder, .file {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .folder:hover, .file:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .folder {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .file {
+            color: #34495e;
+        }
+        
+        .toggle {
+            margin-right: 5px;
+            cursor: pointer;
+            user-select: none;
+            font-weight: bold;
+            color: #7f8c8d;
+            width: 15px;
+            text-align: center;
+        }
+        
+        .icon {
+            margin-right: 8px;
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        
+        .folder-icon {
+            color: #f39c12;
+        }
+        
+        .file-icon {
+            color: #7f8c8d;
+        }
+        
+        .name {
+            flex: 1;
+            margin-right: 20px;
+            min-width: 0;
+        }
+        
+        .size {
+            color: #7f8c8d;
+            font-size: 14px;
+            width: 100px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        
+        .date {
+            color: #95a5a6;
+            font-size: 14px;
+            width: 180px;
+            text-align: right;
+            flex-shrink: 0;
+            margin-left: 20px;
+            white-space: nowrap;
+        }
+        
+        .children {
+            margin-left: 20px;
+            border-left: 1px solid #ecf0f1;
+            padding-left: 10px;
+        }
+        
+        .collapsed {
+            display: none;
+        }
+        
+        
+        .stats {
+            background: #ecf0f1;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .stats-item {
+            margin: 5px 0;
+        }
+        
+        .stats-label {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .error {
+            color: #e74c3c;
+            background: #fdf2f2;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 20px;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #7f8c8d;
+        }
+        
+        .sort-controls {
+            background: #ecf0f1;
+            padding: 20px;
+            margin: 20px;
+            border-radius: 8px;
+            border-bottom: 1px solid #bdc3c7;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .sort-section {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        
+        .sort-controls-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .sort-controls-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .sort-section label {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .sort-section select {
+            padding: 8px 12px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+            background: white;
+            font-size: 14px;
+            color: #2c3e50;
+            cursor: pointer;
+        }
+        
+        .sort-section select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>File Tree Viewer</h1>
+            <p>Upload a file with metadata to view the folder structure</p>
+        </div>
+        
+        <div class="upload-area" id="uploadArea">
+            <div>
+                <h3>📁 Drop your file here or click to browse</h3>
+                <p>Expected format: timestamp size filename (supports .txt and .txt.gz files)</p>
+                <input type="file" id="fileInput" class="file-input" accept=".txt,.gz">
+            </div>
+        </div>
+        
+        <div class="sort-controls" id="sortControls" style="display: none;">
+            <div class="sort-section">
+                <div class="sort-controls-left">
+                    <label for="sortBy">Sort by:</label>
+                    <select id="sortBy">
+                        <option value="name-asc">Name (A-Z)</option>
+                        <option value="name-desc">Name (Z-A)</option>
+                        <option value="size-asc">Size (Small to Large)</option>
+                        <option value="size-desc">Size (Large to Small)</option>
+                        <option value="timestamp-asc">Date (Old to New)</option>
+                        <option value="timestamp-desc">Date (New to Old)</option>
+                    </select>
+                </div>
+                <div class="sort-controls-right" id="statsDisplay">
+                    <!-- Stats will be inserted here -->
+                </div>
+            </div>
+        </div>
+        
+        <div id="errorContainer"></div>
+        <div id="treeContainer" class="tree-container" style="display: none;"></div>
+    </div>
+
+    <!-- Include pako library for gzip decompression -->
+    <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+
+    <script>
+        class FileTreeViewer {
+            constructor() {
+                this.fileData = [];
+                this.treeData = {};
+                this.stats = {
+                    totalFiles: 0,
+                    totalSize: 0,
+                    totalFolders: 0
+                };
+                this.sortBy = 'name-asc';
+                
+                this.initializeEventListeners();
+            }
+            
+            initializeEventListeners() {
+                const uploadArea = document.getElementById('uploadArea');
+                const fileInput = document.getElementById('fileInput');
+                const sortSelect = document.getElementById('sortBy');
+                
+                uploadArea.addEventListener('click', () => fileInput.click());
+                uploadArea.addEventListener('dragover', this.handleDragOver.bind(this));
+                uploadArea.addEventListener('dragleave', this.handleDragLeave.bind(this));
+                uploadArea.addEventListener('drop', this.handleDrop.bind(this));
+                fileInput.addEventListener('change', this.handleFileSelect.bind(this));
+                sortSelect.addEventListener('change', this.handleSortChange.bind(this));
+            }
+            
+            handleDragOver(e) {
+                e.preventDefault();
+                e.currentTarget.classList.add('dragover');
+            }
+            
+            handleDragLeave(e) {
+                e.preventDefault();
+                e.currentTarget.classList.remove('dragover');
+            }
+            
+            handleDrop(e) {
+                e.preventDefault();
+                e.currentTarget.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    this.processFile(files[0]);
+                }
+            }
+            
+            handleFileSelect(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    this.processFile(file);
+                }
+            }
+            
+            handleSortChange(e) {
+                this.sortBy = e.target.value;
+                const expandedPaths = this.getExpandedPaths();
+                this.renderTree();
+                this.setExpandedPaths(expandedPaths);
+            }
+            
+            getExpandedPaths() {
+                const expandedPaths = new Set();
+                const expandedElements = document.querySelectorAll('.children:not(.collapsed)');
+                expandedElements.forEach(element => {
+                    const path = element.getAttribute('data-path');
+                    if (path) {
+                        expandedPaths.add(path);
+                    }
+                });
+                return expandedPaths;
+            }
+            
+            setExpandedPaths(expandedPaths) {
+                // Wait for DOM to be updated, then restore expanded state
+                setTimeout(() => {
+                    this.restoreExpandedPaths(expandedPaths);
+                }, 0);
+            }
+            
+            restoreExpandedPaths(expandedPaths) {
+                // Group paths by depth level
+                const pathsByLevel = {};
+                Array.from(expandedPaths).forEach(path => {
+                    const depth = (path.match(/\//g) || []).length;
+                    if (!pathsByLevel[depth]) {
+                        pathsByLevel[depth] = [];
+                    }
+                    pathsByLevel[depth].push(path);
+                });
+                
+                // Process levels one by one, waiting for lazy loading to complete
+                this.processLevelRecursively(0, pathsByLevel, expandedPaths);
+            }
+            
+            processLevelRecursively(level, pathsByLevel, expandedPaths) {
+                const levelPaths = pathsByLevel[level];
+                if (!levelPaths || levelPaths.length === 0) {
+                    return;
+                }
+                
+                // Process all paths at this level
+                levelPaths.forEach(path => {
+                    const element = document.querySelector(`[data-path="${path}"]`);
+                    if (element) {
+                        const toggle = element.parentElement.querySelector('.toggle');
+                        if (toggle) {
+                            toggle.click();
+                        }
+                    }
+                });
+                
+                // Wait for DOM to be updated after innerHTML changes
+                setTimeout(() => {
+                    this.processLevelRecursively(level + 1, pathsByLevel, expandedPaths);
+                }, 0);
+            }
+            
+            async processFile(file) {
+                try {
+                    this.showLoading();
+                    let text;
+                    
+                    // Check file type and process accordingly
+                    if (file.name.toLowerCase().endsWith('.txt.gz')) {
+                        text = await this.decompressGzipFile(file);
+                    } else if (file.name.toLowerCase().endsWith('.txt')) {
+                        text = await file.text();
+                    } else {
+                        throw new Error('Only .txt and .txt.gz files are supported');
+                    }
+                    
+                    this.parseFileData(text);
+                    this.renderTree();
+                    this.renderStats();
+                    this.showSortControls();
+                    this.hideLoading();
+                    this.hideUploadArea();
+                } catch (error) {
+                    this.showError('Error reading file: ' + error.message);
+                }
+            }
+            
+            async decompressGzipFile(file) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const uint8Array = new Uint8Array(arrayBuffer);
+                    const decompressed = pako.inflate(uint8Array, { to: 'string' });
+                    return decompressed;
+                } catch (error) {
+                    throw new Error('Failed to decompress gzip file: ' + error.message);
+                }
+            }
+            
+            parseFileData(text) {
+                this.fileData = [];
+                this.treeData = {};
+                this.stats = { totalFiles: 0, totalSize: 0, totalFolders: 0 };
+                
+                const lines = text.split('\n');
+                
+                // Pre-allocate array for better performance
+                this.fileData = new Array(lines.length);
+                let fileIndex = 0;
+                
+                // Pre-compile regex for better performance
+                const whitespaceRegex = /\s+/;
+                const dsStoreRegex = /\.DS_Store$/;
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.length === 0) continue;
+                    
+                    const parts = trimmedLine.split(whitespaceRegex);
+                    if (parts.length < 3) continue;
+                    
+                    const timestamp = parseInt(parts[0], 10);
+                    const size = parseInt(parts[1], 10);
+                    
+                    if (isNaN(timestamp) || isNaN(size)) continue;
+                    
+                    // Build filename more efficiently - avoid string concatenation in loop
+                    const filename = parts.slice(2).join(' ');
+                    
+                    // Skip .DS_Store files completely - use regex for better performance
+                    if (dsStoreRegex.test(filename)) continue;
+                    
+                    this.fileData[fileIndex++] = {
+                        timestamp,
+                        size,
+                        filename
+                    };
+                }
+                
+                // Trim array to actual size
+                this.fileData.length = fileIndex;
+                
+                this.buildTreeStructure();
+            }
+            
+            
+            buildTreeStructure() {
+                for (const file of this.fileData) {
+                    const path = file.filename;
+                    const parts = path.split('/');
+                    
+                    let current = this.treeData;
+                    let currentPath = '';
+                    
+                    for (let i = 0; i < parts.length; i++) {
+                        const part = parts[i];
+                        const isLastPart = i === parts.length - 1;
+                        currentPath = currentPath ? `${currentPath}/${part}` : part;
+                        
+                        if (!current[part]) {
+                            current[part] = {
+                                type: isLastPart ? 'file' : 'folder',
+                                size: 0,
+                                timestamp: file.timestamp,
+                                children: isLastPart ? null : {},
+                                path: currentPath
+                            };
+                        } else if (!isLastPart) {
+                            // Update folder timestamp to the latest file timestamp
+                            if (file.timestamp > current[part].timestamp) {
+                                current[part].timestamp = file.timestamp;
+                            }
+                        }
+                        
+                        // Update size and timestamp for files
+                        if (isLastPart) {
+                            current[part].size = file.size;
+                            current[part].timestamp = file.timestamp;
+                        }
+                        
+                        current = current[part].children;
+                    }
+                }
+                
+                this.calculateFolderSizes(this.treeData);
+            }
+            
+            calculateFolderSizes(node) {
+                let totalSize = 0;
+                
+                for (const [name, item] of Object.entries(node)) {
+                    if (item.type === 'file') {
+                        totalSize += item.size;
+                    } else if (item.type === 'folder') {
+                        // Only calculate if not already calculated
+                        if (item.size === 0) {
+                            item.size = this.calculateFolderSizes(item.children);
+                        }
+                        totalSize += item.size;
+                    }
+                }
+                
+                return totalSize;
+            }
+            
+            renderTree() {
+                const container = document.getElementById('treeContainer');
+                const treeHTML = this.renderNode(this.treeData, 0);
+                container.innerHTML = '<ul class="tree">' + treeHTML + '</ul>';
+                container.style.display = 'block';
+            }
+            
+            renderNode(node, level, parentPath = '') {
+                let html = '';
+                
+                // Sort the entries before rendering
+                const sortedEntries = Object.entries(node);
+                const [sortField, sortOrder] = this.sortBy.split('-');
+                
+                sortedEntries.sort((a, b) => {
+                    const [nameA, itemA] = a;
+                    const [nameB, itemB] = b;
+                    
+                    let comparison = 0;
+                    
+                    switch (sortField) {
+                        case 'name':
+                            comparison = nameA.localeCompare(nameB);
+                            break;
+                        case 'size':
+                            comparison = itemA.size - itemB.size;
+                            break;
+                        case 'timestamp':
+                            comparison = itemA.timestamp - itemB.timestamp;
+                            break;
+                    }
+                    
+                    return sortOrder === 'desc' ? -comparison : comparison;
+                });
+                
+                for (const [name, item] of sortedEntries) {
+                    const isFolder = item.type === 'folder';
+                    const hasChildren = isFolder && item.children && Object.keys(item.children).length > 0;
+                    const fullPath = parentPath ? `${parentPath}/${name}` : name;
+                    
+                    html += `<li class="tree-item">`;
+                    html += `<div class="${isFolder ? 'folder' : 'file'}" data-path="${item.path}" data-full-path="${fullPath}">`;
+                    
+                    if (isFolder && hasChildren) {
+                        html += `<span class="toggle" onclick="toggleFolder(this)" data-expanded="false">▶</span>`;
+                    } else {
+                        html += `<span class="toggle"></span>`;
+                    }
+                    
+                    html += `<span class="icon ${isFolder ? 'folder-icon' : 'file-icon'}">`;
+                    html += isFolder ? '📁' : '📄';
+                    html += `</span>`;
+                    
+                    html += `<span class="name">${name}</span>`;
+                    html += `<span class="size">${this.formatSize(item.size)}</span>`;
+                    
+                    if (item.timestamp) {
+                        html += `<span class="date">${this.formatDate(item.timestamp)}</span>`;
+                    }
+                    
+                    html += `</div>`;
+                    
+                    // Add placeholder for collapsed folder (all folders start collapsed)
+                    if (hasChildren) {
+                        html += `<div class="children collapsed" data-lazy-load="true" data-path="${fullPath}"></div>`;
+                    }
+                    
+                    html += `</li>`;
+                }
+                
+                return html;
+            }
+            
+            renderStats() {
+                // Local function to count folders
+                const countFolders = (node) => {
+                    let count = 0;
+                    for (const [name, item] of Object.entries(node)) {
+                        if (item.type === 'folder') {
+                            count++;
+                            count += countFolders(item.children);
+                        }
+                    }
+                    return count;
+                };
+                
+                // Calculate stats
+                this.stats.totalFiles = this.fileData.length;
+                this.stats.totalSize = this.fileData.reduce((sum, f) => sum + f.size, 0);
+                this.stats.totalFolders = countFolders(this.treeData);
+                
+                const container = document.getElementById('statsDisplay');
+                container.innerHTML = `
+                    <div class="stats-item">
+                        <span class="stats-label">Files:</span> ${this.stats.totalFiles.toLocaleString()}
+                    </div>
+                    <div class="stats-item">
+                        <span class="stats-label">Folders:</span> ${this.stats.totalFolders.toLocaleString()}
+                    </div>
+                    <div class="stats-item">
+                        <span class="stats-label">Size:</span> ${this.formatSize(this.stats.totalSize)}
+                    </div>
+                `;
+            }
+            
+            formatSize(bytes) {
+                if (bytes === 0) return '0 B';
+                
+                const k = 1024;
+                const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+            }
+            
+            formatDate(timestamp) {
+                const date = new Date(timestamp * 1000);
+                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+            }
+            
+            showLoading() {
+                const container = document.getElementById('treeContainer');
+                container.innerHTML = '<div class="loading">Processing file...</div>';
+                container.style.display = 'block';
+            }
+            
+            hideLoading() {
+                // Loading will be replaced by renderTree()
+            }
+            
+            showError(message) {
+                const container = document.getElementById('errorContainer');
+                container.innerHTML = `<div class="error">${message}</div>`;
+            }
+            
+            lazyLoadChildren(childrenContainer, fullPath) {
+                // Show loading indicator
+                childrenContainer.innerHTML = '<div class="loading">Loading...</div>';
+                childrenContainer.classList.remove('collapsed');
+                
+                // Find the node in our tree data
+                const node = this.findNodeByPath(fullPath);
+                
+                if (node && node.children) {
+                    // Render the children (sorting is built into renderNode)
+                    const childrenHtml = this.renderNode(node.children, this.getPathDepth(fullPath) + 1, fullPath);
+                    childrenContainer.innerHTML = `<ul class="tree">${childrenHtml}</ul>`;
+                    childrenContainer.removeAttribute('data-lazy-load');
+                } else {
+                    childrenContainer.innerHTML = '<div class="error">Error loading children</div>';
+                }
+            }
+            
+            findNodeByPath(path) {
+                const parts = path.split('/');
+                let current = this.treeData;
+                
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i];
+                    
+                    if (current[part]) {
+                        current = current[part];
+                        
+                        // If this is not the last part and we found a folder, navigate to its children
+                        if (i < parts.length - 1 && current.type === 'folder' && current.children) {
+                            current = current.children;
+                        }
+                    } else {
+                        return null;
+                    }
+                }
+                
+                return current;
+            }
+            
+            getPathDepth(path) {
+                return path.split('/').length - 1;
+            }
+            
+            showSortControls() {
+                const sortControls = document.getElementById('sortControls');
+                sortControls.style.display = 'block';
+            }
+            
+            hideUploadArea() {
+                const header = document.querySelector('.header');
+                const uploadArea = document.getElementById('uploadArea');
+                
+                if (header) {
+                    header.style.display = 'none';
+                }
+                if (uploadArea) {
+                    uploadArea.style.display = 'none';
+                }
+            }
+            
+        }
+        
+        function toggleFolder(element) {
+            const children = element.parentElement.nextElementSibling;
+            if (children) {
+                const isCurrentlyExpanded = !children.classList.contains('collapsed');
+                
+                if (!isCurrentlyExpanded && children.getAttribute('data-lazy-load') === 'true') {
+                    // Lazy load children
+                    const fullPath = element.parentElement.getAttribute('data-full-path');
+                    const viewer = window.fileTreeViewer;
+                    if (viewer && viewer.lazyLoadChildren) {
+                        viewer.lazyLoadChildren(children, fullPath);
+                    }
+                } else {
+                    // Toggle normally for already loaded content
+                    children.classList.toggle('collapsed');
+                }
+                
+                const newExpanded = !children.classList.contains('collapsed');
+                element.textContent = newExpanded ? '▼' : '▶';
+                element.setAttribute('data-expanded', newExpanded);
+            }
+        }
+        
+        // Initialize the viewer and make it globally accessible
+        window.fileTreeViewer = new FileTreeViewer();
+    </script>
+</body>
+</html>

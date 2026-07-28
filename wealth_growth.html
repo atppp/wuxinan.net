@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wealth Growth Calculator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        .parameters {
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            flex: 0 0 320px;
+            min-width: 0;
+        }
+
+        .parameters h2 {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .param-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .param-table tr {
+            border-bottom: 1px solid #e1e5e9;
+        }
+
+        .param-table tr:last-child {
+            border-bottom: none;
+        }
+
+        .param-table td {
+            padding: 4px 0;
+            vertical-align: middle;
+        }
+
+        .param-table td:first-child {
+            font-weight: 600;
+            color: #666;
+            font-size: 0.75em;
+            padding-right: 12px;
+        }
+
+        .param-table td:last-child {
+            text-align: right;
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            justify-content: flex-end;
+        }
+
+        .param-table input {
+            padding: 6px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: border-color 0.2s;
+            width: 80px;
+            text-align: center;
+            -moz-appearance: textfield;
+        }
+
+        .param-table input::-webkit-outer-spin-button,
+        .param-table input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .param-table input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .param-table input:disabled {
+            background-color: #f5f5f5;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        .input-btn {
+            width: 28px;
+            height: 28px;
+            border: 2px solid #e1e5e9;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: #667eea;
+            font-weight: bold;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .input-btn:hover {
+            background: #f8f9fa;
+            border-color: #667eea;
+        }
+
+        .input-btn:active {
+            background: #e9ecef;
+            transform: scale(0.95);
+        }
+
+        .input-btn:disabled {
+            background: #f5f5f5;
+            color: #999;
+            border-color: #e1e5e9;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .input-btn:disabled:hover {
+            background: #f5f5f5;
+            border-color: #e1e5e9;
+            transform: none;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            position: relative;
+            height: 500px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        .chart-container.shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 100%;
+        }
+
+        .summary {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .summary h2 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .summary-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .summary-label {
+            font-size: 0.85em;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .summary-value {
+            font-size: 1.5em;
+            color: #333;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+                flex-direction: column;
+            }
+
+            .parameters {
+                flex: 1;
+                width: 100%;
+            }
+
+            .param-table td:first-child {
+                font-size: 0.75em;
+            }
+
+            .input-wrapper {
+                justify-content: center;
+            }
+
+            .param-table input {
+                width: 70px;
+            }
+
+            .input-btn {
+                width: 32px;
+                height: 32px;
+            }
+
+            .chart-container {
+                height: 400px;
+                width: 100%;
+            }
+
+            /* Align checkbox with graph on mobile */
+            .checkbox-container {
+                margin-left: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔥 FIRE Calculator</h1>
+    </div>
+
+    <div class="container">
+        <div class="parameters">
+            <h2>Parameters</h2>
+            <table class="param-table">
+                <tr>
+                    <td>Initial Assets - $M</td>
+                    <td>
+                        <div class="input-wrapper">
+                            <button type="button" class="input-btn" data-input="initialAssets" data-dir="down">−</button>
+                            <input type="number" id="initialAssets" value="3" step="1" min="0">
+                            <button type="button" class="input-btn" data-input="initialAssets" data-dir="up">+</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Annualized Investment Return - %</td>
+                    <td>
+                        <div class="input-wrapper">
+                            <button type="button" class="input-btn" data-input="return" data-dir="down">−</button>
+                            <input type="number" id="return" value="10" step="1" min="0">
+                            <button type="button" class="input-btn" data-input="return" data-dir="up">+</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Annual Job Income - $k (before tax)</td>
+                    <td>
+                        <div class="input-wrapper">
+                            <button type="button" class="input-btn" data-input="jobIncome" data-dir="down">−</button>
+                            <input type="number" id="jobIncome" value="200" step="50" min="0">
+                            <button type="button" class="input-btn" data-input="jobIncome" data-dir="up">+</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Years to Work</td>
+                    <td>
+                        <div class="input-wrapper">
+                            <button type="button" class="input-btn" data-input="yearsToWork" data-dir="down">−</button>
+                            <input type="number" id="yearsToWork" value="0" step="1" min="0">
+                            <button type="button" class="input-btn" data-input="yearsToWork" data-dir="up">+</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Annual Expenses - $k (excluding tax)</td>
+                    <td>
+                        <div class="input-wrapper">
+                            <button type="button" class="input-btn" data-input="expenses" data-dir="down">−</button>
+                            <input type="number" id="expenses" value="200" step="50" min="0">
+                            <button type="button" class="input-btn" data-input="expenses" data-dir="up">+</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Inflation Rate - % (also applied on job income and expenses)</td>
+                    <td>
+                        <div class="input-wrapper">
+                            <button type="button" class="input-btn" data-input="inflation" data-dir="down">−</button>
+                            <input type="number" id="inflation" value="3.3" step="0.1" min="0">
+                            <button type="button" class="input-btn" data-input="inflation" data-dir="up">+</button>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>Time Horizon - Years</td>
+                    <td>
+                        <div class="input-wrapper">
+                            <button type="button" class="input-btn" data-input="horizon" data-dir="down">−</button>
+                            <input type="number" id="horizon" value="30" step="5" min="5">
+                            <button type="button" class="input-btn" data-input="horizon" data-dir="up">+</button>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e1e5e9;">
+                <p style="color: #666; font-size: 0.75em; margin: 0; line-height: 1.4; margin-bottom: 8px;">
+                    Assumes 33% tax rate on withdrawals/income.
+                </p>
+                <p style="color: #666; font-size: 0.75em; margin: 0; line-height: 1.4;">
+                    Completely client-side web app. Your inputs stay on your device. Your privacy is important to us.
+                </p>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div class="chart-wrapper">
+                <canvas id="wealthChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div style="max-width: 1400px; margin: 0 auto; padding: 0 20px 30px 20px;">
+        <div class="checkbox-container" style="padding: 15px; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin-left: 340px;">
+            <label style="display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; font-weight: 600;">
+                <input type="checkbox" id="inflationAdjusted" checked style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0;">
+                <span style="line-height: 1.4; font-size: 0.9em;">Show inflation-adjusted dollars (current dollar value)</span>
+            </label>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        let previousWasAboveFire = null; // Track previous state for confetti
+
+        function formatCurrency(value, minDiff = null) {
+            const isNegative = value < 0;
+            const absValue = Math.abs(value);
+            
+            const suffixes = ['', 'K', 'M', 'B', 'T'];
+            const index = Math.min(Math.floor(Math.log10(absValue || 1) / 3), suffixes.length - 1);
+            const divisor = Math.pow(1000, index);
+            
+            // Determine precision based on minimum difference using logarithm
+            let precision = 1;
+            if (minDiff !== null && minDiff < Infinity) {
+                // Use the same divisor as the value to normalize the difference
+                const normalizedDiff = minDiff / divisor;
+                
+                // Calculate precision needed: use log to map normalizedDiff to precision
+                // normalizedDiff < 0.01 -> 3, < 0.1 -> 2, < 1 -> 1, >= 1 -> 0
+                precision = Math.max(0, Math.min(3, Math.ceil(-Math.log10(Math.max(normalizedDiff, 0.001)))));
+            }
+            
+            const formatted = '$' + (absValue / divisor).toFixed(precision) + suffixes[index];
+            return isNegative ? '-' + formatted : formatted;
+        }
+
+        function calculateFireThreshold(annualExpensesAfterTax, inflationRate, investmentReturn, taxRate, year, inflationAdjusted) {
+            // Formula: E*(1+I)^i/((1-T)*(R-I))
+            // E = annualExpensesAfterTax
+            // I = inflationRate
+            // R = investmentReturn
+            // T = taxRate
+            // i = year
+            
+            if (taxRate >= 1 || investmentReturn <= inflationRate) {
+                return null;
+            }
+            
+            // Compute inflation-adjusted threshold first (in today's dollars)
+            const fireThresholdInflationAdjusted = annualExpensesAfterTax / ((1 - taxRate) * (investmentReturn - inflationRate));
+            
+            if (inflationAdjusted) {
+                // Return inflation-adjusted value (same for all years)
+                return fireThresholdInflationAdjusted;
+            } else {
+                // Convert to nominal dollars for the specific year
+                return fireThresholdInflationAdjusted * Math.pow(1 + inflationRate, year);
+            }
+        }
+
+        function calculateWealthGrowth(initialAssets, annualExpensesAfterTax, inflationRate, investmentReturn, timeHorizon, annualJobIncomeBeforeTax, yearsToWork, inflationAdjusted) {
+            // Tax rate assumption: 33%
+            const TAX_RATE = 0.33;
+            // Calculate job income after tax
+            const annualJobIncomeAfterTax = annualJobIncomeBeforeTax * (1 - TAX_RATE);
+
+            const years = [];
+            const assets = [];
+            const nominalAssets = [];
+            const fireThresholds = [];
+            
+            // Year 0: initial assets
+            let currentAssets = initialAssets;
+            years.push(0);
+            nominalAssets.push(currentAssets);
+            // Year 0 has no inflation adjustment needed
+            assets.push(currentAssets);
+            
+            // Calculate FIRE threshold for year 0
+            fireThresholds.push(calculateFireThreshold(annualExpensesAfterTax, inflationRate, investmentReturn, TAX_RATE, 0, inflationAdjusted));
+
+            // Calculate for each year
+            for (let i = 1; i <= timeHorizon; i++) {
+                // Apply investment return
+                currentAssets = currentAssets * (1 + investmentReturn);
+                
+                // Calculate inflated values
+                const inflatedExpensesAfterTax = annualExpensesAfterTax * Math.pow(1 + inflationRate, i - 1);
+                const isWorking = i <= yearsToWork;
+                
+                if (isWorking) {
+                    // During working years
+                    const inflatedJobIncome = annualJobIncomeAfterTax * Math.pow(1 + inflationRate, i - 1);
+                    
+                    if (inflatedJobIncome >= inflatedExpensesAfterTax) {
+                        // Income covers expenses: simple math, savings remain in assets
+                        currentAssets = currentAssets + inflatedJobIncome - inflatedExpensesAfterTax;
+                    } else {
+                        // Expenses exceed income: withdraw shortfall from investments
+                        const shortfall = inflatedExpensesAfterTax - inflatedJobIncome;
+                        const withdrawalPreTax = shortfall / (1 - TAX_RATE);
+                        // Income - expenses = -shortfall, withdrawal gives us +shortfall cash, so they cancel
+                        // We only need to subtract the withdrawal from investments
+                        currentAssets = currentAssets - withdrawalPreTax;
+                    }
+                } else {
+                    // During retirement: all expenses need to be withdrawn from investments (pre-tax)
+                    // We withdraw to get cash to pay expenses, so we just subtract the withdrawal amount
+                    const withdrawalPreTax = inflatedExpensesAfterTax / (1 - TAX_RATE);
+                    currentAssets = currentAssets - withdrawalPreTax;
+                }
+                
+                years.push(i);
+                nominalAssets.push(currentAssets);
+                
+                // Apply inflation adjustment if checkbox is checked
+                if (inflationAdjusted) {
+                    // Scale back to current dollar value: divide by (1 + inflationRate)^i
+                    const adjustedAssets = currentAssets / Math.pow(1 + inflationRate, i);
+                    assets.push(adjustedAssets);
+                } else {
+                    assets.push(currentAssets);
+                }
+                
+                // Calculate FIRE threshold for this year
+                fireThresholds.push(calculateFireThreshold(annualExpensesAfterTax, inflationRate, investmentReturn, TAX_RATE, i, inflationAdjusted));
+            }
+
+            return { years, assets, fireThresholds };
+        }
+
+        function updateChart() {
+            // Read parameters from DOM
+            // Convert from M to dollars
+            const initialAssets = parseFloat(document.getElementById('initialAssets').value) * 1000000;
+            // Convert from k to dollars
+            const annualExpensesAfterTax = parseFloat(document.getElementById('expenses').value) * 1000;
+            const inflationRate = parseFloat(document.getElementById('inflation').value) / 100;
+            const investmentReturn = parseFloat(document.getElementById('return').value) / 100;
+            const timeHorizon = parseInt(document.getElementById('horizon').value);
+            // Convert from k to dollars
+            const annualJobIncomeBeforeTax = parseFloat(document.getElementById('jobIncome').value) * 1000;
+            const yearsToWork = parseInt(document.getElementById('yearsToWork').value);
+            const inflationAdjusted = document.getElementById('inflationAdjusted').checked;
+            
+            const { years, assets, fireThresholds } = calculateWealthGrowth(
+                initialAssets,
+                annualExpensesAfterTax,
+                inflationRate,
+                investmentReturn,
+                timeHorizon,
+                annualJobIncomeBeforeTax,
+                yearsToWork,
+                inflationAdjusted
+            );
+
+            // Determine background color based on final assets vs FIRE threshold
+            const finalAssets = assets[assets.length - 1];
+            const finalFireThreshold = fireThresholds[fireThresholds.length - 1];
+            const isAboveFire = finalFireThreshold !== null && finalAssets >= finalFireThreshold;
+            const backgroundColor = isAboveFire ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)'; // Green or red with low opacity
+            
+            // Check for transition from red to green and trigger confetti
+            if (previousWasAboveFire === false && isAboveFire === true && typeof confetti !== 'undefined') {
+                // Transitioned from red to green - celebrate!
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#22c55e', '#16a34a', '#15803d', '#fbbf24', '#f59e0b']
+                });
+            }
+            
+            // Check for transition from green to red and trigger shake
+            if (previousWasAboveFire === true && isAboveFire === false) {
+                // Transitioned from green to red - shake warning
+                const chartContainer = document.querySelector('.chart-container');
+                if (chartContainer) {
+                    chartContainer.classList.add('shake');
+                    // Remove the class after animation completes
+                    setTimeout(() => {
+                        chartContainer.classList.remove('shake');
+                    }, 500);
+                }
+            }
+            
+            // Update previous state for next time
+            previousWasAboveFire = isAboveFire;
+
+            const ctx = document.getElementById('wealthChart').getContext('2d');
+
+            if (chart) {
+                chart.destroy();
+            }
+
+            // Plugin to draw background color
+            const backgroundPlugin = {
+                id: 'backgroundPlugin',
+                beforeDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    const chartArea = chart.chartArea;
+                    ctx.save();
+                    ctx.fillStyle = backgroundColor;
+                    ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+                    ctx.restore();
+                }
+            };
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                plugins: [backgroundPlugin],
+                data: {
+                    labels: years,
+                    datasets: [{
+                        label: '',
+                        data: fireThresholds,
+                        borderColor: '#ff6b35',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false
+                    }, {
+                        label: inflationAdjusted ? 'Assets (inflation-adjusted)' : 'Assets (nominal)',
+                        data: assets,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#667eea',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Year',
+                                font: {
+                                    size: 14,
+                                    weight: '600'
+                                },
+                                padding: { top: 10, bottom: 0 }
+                            },
+                            ticks: {
+                                font: {
+                                    size: 12
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: inflationAdjusted ? 'Assets ($, inflation-adjusted)' : 'Assets ($, nominal)',
+                                font: {
+                                    size: 14,
+                                    weight: '600'
+                                },
+                                padding: { top: 0, bottom: 10 }
+                            },
+                            ticks: {
+                                font: {
+                                    size: 12
+                                },
+                                callback: function(value, index, ticks) {
+                                    // Find minimum difference between adjacent ticks
+                                    let minDiff = Infinity;
+                                    for (let i = 0; i < ticks.length - 1; i++) {
+                                        const diff = Math.abs(ticks[i + 1].value - ticks[i].value);
+                                        if (diff > 0 && diff < minDiff) {
+                                            minDiff = diff;
+                                        }
+                                    }
+                                    
+                                    return formatCurrency(value, minDiff < Infinity ? minDiff : null);
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    onHover: (event, activeElements) => {
+                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
+                    }
+                }
+            });
+        }
+
+        // Toggle job income input based on years to work
+        function updateJobIncomeState() {
+            const yearsToWork = parseInt(document.getElementById('yearsToWork').value) || 0;
+            const jobIncomeInput = document.getElementById('jobIncome');
+            const jobIncomeButtons = document.querySelectorAll('.input-btn[data-input="jobIncome"]');
+            
+            if (yearsToWork === 0) {
+                jobIncomeInput.disabled = true;
+                jobIncomeButtons.forEach(btn => btn.disabled = true);
+            } else {
+                jobIncomeInput.disabled = false;
+                jobIncomeButtons.forEach(btn => btn.disabled = false);
+            }
+        }
+
+        // Initialize chart on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateChart();
+            updateJobIncomeState(); // Set initial state
+
+            // Update chart when parameters change
+            ['initialAssets', 'expenses', 'inflation', 'return', 'horizon', 'jobIncome', 'yearsToWork'].forEach(id => {
+                document.getElementById(id).addEventListener('input', updateChart);
+            });
+            
+            // Update job income state when years to work changes
+            document.getElementById('yearsToWork').addEventListener('input', updateJobIncomeState);
+            
+            // Update chart when inflation-adjusted checkbox changes
+            document.getElementById('inflationAdjusted').addEventListener('change', updateChart);
+
+            // Handle up/down button clicks
+            document.querySelectorAll('.input-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (btn.disabled) return;
+                    
+                    const inputId = btn.getAttribute('data-input');
+                    const direction = btn.getAttribute('data-dir');
+                    const input = document.getElementById(inputId);
+                    if (input.disabled) return;
+                    
+                    const step = parseFloat(input.step) || 1;
+                    const min = input.min !== '' ? parseFloat(input.min) : undefined;
+                    const currentValue = parseFloat(input.value) || 0;
+                    
+                    // Determine decimal places from step to avoid floating point precision issues
+                    const stepStr = step.toString();
+                    const decimalPlaces = stepStr.includes('.') ? stepStr.split('.')[1].length : 0;
+                    
+                    let newValue;
+                    if (direction === 'up') {
+                        // Round up to next multiple of step
+                        newValue = Math.ceil(currentValue / step) * step;
+                        // If already on a multiple, go to next one
+                        if (Math.abs(newValue - currentValue) < 0.0001) {
+                            newValue = newValue + step;
+                        }
+                    } else {
+                        // Round down to previous multiple of step
+                        newValue = Math.floor(currentValue / step) * step;
+                        // If already on a multiple, go to previous one
+                        if (Math.abs(newValue - currentValue) < 0.0001) {
+                            newValue = newValue - step;
+                        }
+                    }
+                    // Ensure we don't go below minimum
+                    if (min !== undefined && newValue < min) {
+                        newValue = min;
+                    }
+                    
+                    // Round to the same number of decimal places as the step
+                    newValue = Math.round(newValue * Math.pow(10, decimalPlaces)) / Math.pow(10, decimalPlaces);
+                    
+                    input.value = newValue;
+                    input.dispatchEvent(new Event('input'));
+                    
+                    // Update job income state if years to work changed
+                    if (inputId === 'yearsToWork') {
+                        updateJobIncomeState();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+

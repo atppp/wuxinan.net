@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flight Map Visualization</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(3.5px);
+            -webkit-backdrop-filter: blur(3.5px);
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 300px;
+            transition: background-color 0.3s ease;
+        }
+        .info-panel:hover {
+            background: white;
+        }
+        .info-panel p {
+            font-size: 12px;
+            margin: 4px 0;
+        }
+        h3 {
+            margin: 0;
+        }
+        .clickable-airport {
+            cursor: pointer;
+            color: #007bff;
+            text-decoration: underline;
+        }
+        .clickable-airport:hover {
+            color: #0056b3;
+        }
+        .clickable-route {
+            cursor: pointer;
+            color: #28a745;
+            font-weight: bold;
+            text-decoration: underline;
+            margin: 0 4px;
+        }
+        .clickable-route:hover {
+            color: #1e7e34;
+        }
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2px;
+        }
+        .minimize-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            color: #666;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .minimize-btn:hover {
+            background: #f0f0f0;
+            color: #333;
+        }
+        .panel-content {
+            transition: max-height 0.3s ease-out;
+            overflow: hidden;
+        }
+        .panel-content.collapsed {
+            max-height: 0;
+        }
+        .controls {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+        .list-btn {
+            margin-right: 8px;
+        }
+        .flight-list-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .flight-list-container {
+            background: white;
+            border-radius: 8px;
+            width: 80%;
+            max-width: 800px;
+            height: 80%;
+            max-height: 600px;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .flight-list-header {
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .flight-list-header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .flight-list-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #495057;
+            user-select: none;
+        }
+        .flight-list-toggle input {
+            transform: translateY(1px);
+        }
+        .flight-list-header h2 {
+            margin: 0;
+            color: #333;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .close-btn:hover {
+            color: #333;
+            background: #f0f0f0;
+            border-radius: 50%;
+        }
+        .flight-list-content {
+            padding: 20px;
+            height: calc(100% - 100px);
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        .flight-table {
+            margin-top: 0;
+        }
+        .flight-table thead {
+            position: sticky;
+            top: -20px;
+            z-index: 100;
+            background: #f8f9fa;
+        }
+        .flight-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .flight-table th {
+            background: #f8f9fa;
+            padding: 12px 8px;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+            color: #495057;
+        }
+        .flight-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #dee2e6;
+            vertical-align: top;
+        }
+        .flight-table tbody tr {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .flight-table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        .flight-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .date-col {
+            white-space: nowrap;
+            text-align: center;
+        }
+        .from-col {
+            text-align: center;
+        }
+        .to-col {
+            text-align: center;
+        }
+        .purpose-col {
+            text-align: center;
+        }
+        .carrier-col {
+            text-align: left;
+        }
+        .distance-col {
+            text-align: right;
+        }
+        .center-col {
+            text-align: center;
+        }
+        .pivot-total {
+            font-weight: 600;
+            background-color: #f0f0f0;
+        }
+        .flight-list-toggle select {
+            margin-left: 6px;
+            padding: 4px 8px;
+            font-size: 13px;
+            border-radius: 3px;
+            border: 1px solid #ccc;
+        }
+        .purpose-business {
+            background-color: #e3f2fd;
+            font-weight: 500;
+        }
+        .purpose-personal {
+            background-color: #f3e5f5;
+        }
+        .purpose-couple {
+            background-color: #fff3e0;
+        }
+        .purpose-family {
+            background-color: #e8f5e9;
+        }
+        .flight-route {
+            stroke: #ff6b6b;
+            stroke-width: 2;
+            stroke-opacity: 0.7;
+            fill: none;
+        }
+        .airport-marker {
+            background: #4ecdc4;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 8px;
+            height: 8px;
+        }
+        .airport-marker.major {
+            background: #ff6b6b;
+            width: 12px;
+            height: 12px;
+        }
+        .top10-panel {
+            position: absolute;
+            top: 100px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(3.5px);
+            -webkit-backdrop-filter: blur(3.5px);
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            max-width: 300px;
+            max-height: 80vh;
+            overflow-y: auto;
+            transition: background-color 0.3s ease;
+        }
+        .top10-panel:hover {
+            background: white;
+        }
+        .stats-section {
+            margin-bottom: 15px;
+        }
+        .stats-section h4 {
+            margin: 0 0 8px 0;
+            color: #333;
+            font-size: 14px;
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2px 0;
+            font-size: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+        .stat-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .stat-count {
+            font-weight: bold;
+            color: #666;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    
+    <div class="info-panel">
+        <div class="panel-header">
+            <h3>Flight Statistics</h3>
+            <button class="minimize-btn" onclick="toggleStatsPanel()">−</button>
+        </div>
+        <div class="panel-content" id="stats-content">
+            <p>Total flights: <span id="total-flights">0</span></p>
+            <p>Unique airports: <span id="total-airports">0</span></p>
+            <p>Flight routes: <span id="total-routes">0</span></p>
+            <p>Unique carriers: <span id="unique-carriers">0</span></p>
+            <p>Total flown: <span id="total-miles">0</span> miles</p>
+            
+            <div class="stats-section">
+                <h4>Longest</h4>
+                <p id="longest-flight">-</p>
+            </div>
+            
+            <div class="stats-section">
+                <h4>Shortest</h4>
+                <p id="shortest-flight">-</p>
+            </div>
+            
+            <div class="stats-section">
+                <h4>Airport records</h4>
+                <p>Northernmost: <span id="northernmost">-</span></p>
+                <p>Southernmost: <span id="southernmost">-</span></p>
+                <p>Easternmost: <span id="easternmost">-</span></p>
+                <p>Westernmost: <span id="westernmost">-</span></p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="top10-panel">
+        <div class="panel-header">
+            <h3>Top 10 Statistics</h3>
+            <button class="minimize-btn" onclick="toggleTop10Panel()">−</button>
+        </div>
+        <div class="panel-content" id="top10-content">
+            <div class="stats-section">
+                <h4>Routes</h4>
+                <div id="top-routes"></div>
+            </div>
+            <div class="stats-section">
+                <h4>Airports</h4>
+                <div id="top-airports"></div>
+            </div>
+            <div class="stats-section">
+                <h4>Airlines</h4>
+                <div id="top-airlines"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <h4>Controls</h4>
+        <input type="file" id="csvFile" accept=".csv" onchange="loadCSVFile()" style="margin-bottom: 10px;">
+        <br>
+        <label style="display: block; margin: 5px 0; font-size: 12px;">
+            <input type="checkbox" id="autoZoom"> Auto Zoom
+        </label>
+        <label style="display: block; margin: 5px 0; font-size: 12px;" title="Show only flights from/to the selected airport">
+            <input type="checkbox" id="airportFlightsOnly"> Filter by Airport
+        </label>
+        <label style="display: block; margin: 5px 0; font-size: 12px;" title="Show only Family purpose flights">
+            <input type="checkbox" id="familyOnly"> Family Only
+        </label>
+        <button class="list-btn" onclick="showFlightList()">List Flights</button>
+        <button onclick="resetView()">Reset View</button>
+    </div>
+
+    <!-- Flight List Modal -->
+    <div id="flightListModal" class="flight-list-modal">
+        <div class="flight-list-container">
+            <div class="flight-list-header">
+                <h2>Flight List</h2>
+                <div class="flight-list-header-right">
+                    <label class="flight-list-toggle" title="Group flights by year or year/month">
+                        Group by
+                        <select id="groupBySelect">
+                            <option value="none">None</option>
+                            <option value="year">Year</option>
+                            <option value="year-month">Year/Month</option>
+                        </select>
+                    </label>
+                    <button class="close-btn" onclick="hideFlightList()">&times;</button>
+                </div>
+            </div>
+            <div class="flight-list-content" id="flightListContent">
+                <!-- Flight items will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Airport coordinates database (loaded from OpenFlights)
+        let airportCoords = {};
+        let airportNames = {};
+
+        // Global variables for flight data
+        let flights = [];
+        let routeLines = [];
+        let airportMarkers = [];
+        let processedRoutes = new Set();
+        let selectedRouteLine = null;
+
+        // Load airport coordinates from OpenFlights database
+        async function loadAirportCoords() {
+            try {
+                // Try to load from local file first, fallback to remote URL
+                let data;
+                const isFileProtocol = window.location.protocol === 'file:';
+                
+                if (!isFileProtocol) {
+                    // Only try local file if not using file:// protocol
+                    try {
+                        const localResponse = await fetch('airports.dat');
+                        if (localResponse.ok) {
+                            data = await localResponse.text();
+                            console.log('Loaded airports.dat from local file');
+                        } else {
+                            throw new Error('Local file not found');
+                        }
+                    } catch (localError) {
+                        // Fallback to remote URL
+                        console.log('Local file not found, loading from remote...');
+                        const response = await fetch('https://raw.githubusercontent.com/jpatokal/openflights/refs/heads/master/data/airports.dat');
+                        data = await response.text();
+                    }
+                } else {
+                    // If using file:// protocol, go directly to remote URL
+                    console.log('Using file:// protocol, loading from remote...');
+                    const response = await fetch('https://raw.githubusercontent.com/jpatokal/openflights/refs/heads/master/data/airports.dat');
+                    data = await response.text();
+                }
+                
+                const lines = data.split('\n');
+                airportCoords = {};
+                airportNames = {};
+                
+                lines.forEach(line => {
+                    if (line.trim()) {
+                        // Parse CSV line - handle quoted fields and escaped commas
+                        const fields = [];
+                        let current = '';
+                        let inQuotes = false;
+                        
+                        for (let i = 0; i < line.length; i++) {
+                            const char = line[i];
+                            if (char === '"') {
+                                inQuotes = !inQuotes;
+                            } else if (char === ',' && !inQuotes) {
+                                fields.push(current);
+                                current = '';
+                            } else {
+                                current += char;
+                            }
+                        }
+                        fields.push(current);
+                        
+                        // Extract relevant fields: Name (index 1), IATA (index 4), Latitude (index 6), Longitude (index 7)
+                        if (fields.length >= 8) {
+                            const name = fields[1].replace(/"/g, '').trim();
+                            const iata = fields[4].replace(/"/g, '').trim();
+                            const lat = parseFloat(fields[6]);
+                            const lon = parseFloat(fields[7]);
+                            
+                            // Only add if IATA code exists and coordinates are valid
+                            if (iata && iata !== '\\N' && !isNaN(lat) && !isNaN(lon)) {
+                                airportCoords[iata] = [lat, lon];
+                                airportNames[iata] = name;
+                            }
+                        }
+                    }
+                });
+                
+                console.log(`Loaded ${Object.keys(airportCoords).length} airports from OpenFlights database`);
+            } catch (error) {
+                console.error('Error loading airport coordinates:', error);
+                // Fallback to a few essential airports if loading fails
+                airportCoords = {
+                    'LAX': [33.9425, -118.4081],
+                    'SFO': [37.6213, -122.3790],
+                    'JFK': [40.6413, -73.7781],
+                    'LHR': [51.4700, -0.4543],
+                    'HKG': [22.3080, 113.9185],
+                    'PEK': [40.0799, 116.6031],
+                    'NRT': [35.7720, 140.3928],
+                    'ORD': [41.9786, -87.9048]
+                };
+                airportNames = {
+                    'LAX': 'Los Angeles International Airport',
+                    'SFO': 'San Francisco International Airport',
+                    'JFK': 'John F Kennedy International Airport',
+                    'LHR': 'London Heathrow Airport',
+                    'HKG': 'Hong Kong International Airport',
+                    'PEK': 'Beijing Capital International Airport',
+                    'NRT': 'Narita International Airport',
+                    'ORD': 'Chicago O\'Hare International Airport'
+                };
+            }
+        }
+
+        // Calculate great circle distance using Haversine formula
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            // Convert decimal degrees to radians
+            const R = 3958.8; // Radius of earth in miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Calculate distance for a flight based on airport codes
+        function calculateFlightDistance(fromCode, toCode) {
+            if (!fromCode || !toCode) return 0;
+            const fromCoords = airportCoords[fromCode];
+            const toCoords = airportCoords[toCode];
+            if (!fromCoords || !toCoords) return 0;
+            return haversineDistance(fromCoords[0], fromCoords[1], toCoords[0], toCoords[1]);
+        }
+
+        // Parse CSV data
+        function parseCSV(csvText) {
+            // Handle both DOS (CRLF) and Unix (LF) line breaks
+            // First normalize all line breaks to \n, then split
+            const normalized = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const lines = normalized.trim().split('\n');
+            const headers = lines[0].split(',');
+            const data = [];
+            
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',');
+                const row = {};
+                headers.forEach((header, index) => {
+                    if (header != 'Distance') {
+                        row[header] = values[index] || '';
+                    }
+                });
+                data.push(row);
+            }
+            return data;
+        }
+
+        // Calculate distances for all flights
+        function calculateDistancesForFlights(flights) {
+            flights.forEach(flight => {
+                if (!flight.Distance) {
+                    flight.Distance = calculateFlightDistance(flight.From, flight.To);
+                }
+            });
+            return flights;
+        }
+
+        // Load CSV file
+        async function loadCSVFile() {
+            const fileInput = document.getElementById('csvFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a CSV file');
+                return;
+            }
+            
+            // Ensure airport coordinates are loaded first
+            if (Object.keys(airportCoords).length === 0) {
+                await loadAirportCoords();
+            }
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const csvText = e.target.result;
+                flights = parseCSV(csvText);
+                // Calculate distances for all flights based on airport coordinates
+                calculateDistancesForFlights(flights);
+                renderFlightMap();
+            };
+            reader.readAsText(file);
+        }
+
+        // Initialize map centered on Pacific Ocean for realistic flight paths
+        const map = L.map('map').setView([20, -120], 2);
+        
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Function to create great circle arc between two points
+        function createGreatCircleArc(start, end, numPoints = 50) {
+            const points = [];
+            const lat1 = start[0] * Math.PI / 180;
+            const lon1 = start[1] * Math.PI / 180;
+            const lat2 = end[0] * Math.PI / 180;
+            const lon2 = end[1] * Math.PI / 180;
+            
+            // Calculate the great circle distance
+            const d = Math.acos(Math.sin(lat1) * Math.sin(lat2) + 
+                              Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1));
+            
+            if (d === 0) {
+                return [start, end];
+            }
+            
+            // Calculate the bearing from start to end
+            const y = Math.sin(lon2 - lon1) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
+            const bearing = Math.atan2(y, x);
+            
+            for (let i = 0; i <= numPoints; i++) {
+                const f = i / numPoints;
+                const lat = Math.asin(Math.sin(lat1) * Math.cos(f * d) + 
+                                    Math.cos(lat1) * Math.sin(f * d) * Math.cos(bearing));
+                const lon = lon1 + Math.atan2(Math.sin(bearing) * Math.sin(f * d) * Math.cos(lat1),
+                                            Math.cos(f * d) - Math.sin(lat1) * Math.sin(lat));
+                
+                points.push([lat * 180 / Math.PI, lon * 180 / Math.PI]);
+            }
+            
+            return points;
+        }
+
+        // Render flight map with current flight data
+        function renderFlightMap() {
+            // Clear existing markers and routes
+            airportMarkers.forEach(marker => map.removeLayer(marker));
+            routeLines.forEach(line => map.removeLayer(line));
+            airportMarkers = [];
+            routeLines = [];
+            processedRoutes.clear();
+            
+            if (flights.length === 0) {
+                alert('No flight data loaded');
+                return;
+            }
+            
+            // Get filtered flights based on current filters
+            const filteredFlights = getFilteredFlights();
+            
+            // Get unique airports and count flights
+            const airports = new Set();
+            const routeCounts = {};
+            const airportCounts = {};
+            
+            filteredFlights.forEach(flight => {
+                const from = flight.From;
+                const to = flight.To;
+                
+                if (from && to) {
+                    airports.add(from);
+                    airports.add(to);
+                    
+                    // Count flights per airport
+                    airportCounts[from] = (airportCounts[from] || 0) + 1;
+                    airportCounts[to] = (airportCounts[to] || 0) + 1;
+                    
+                    // Count routes (normalize by alphabetical order)
+                    const routeKey = [from, to].sort().join('-');
+                    routeCounts[routeKey] = (routeCounts[routeKey] || 0) + 1;
+                }
+            });
+
+            // Create airport markers
+            const majorAirports = ['LAX', 'SFO', 'ORD', 'JFK', 'LHR', 'HKG', 'PEK', 'NRT'];
+            
+            addMarker = function(coords, isMajor, flightCount, airportCode) {
+                const marker = L.circleMarker(coords, {
+                        radius: isMajor ? 10 : 7,
+                        fillColor: isMajor ? '#ff6b6b' : '#4ecdc4',
+                        color: 'white',
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 0.9
+                    }).addTo(map);
+                marker.bindPopup(`
+                    <strong>${airportCode}</strong><br>
+                    Flights: ${flightCount}<br>
+                    ${isMajor ? 'Major Hub' : 'Airport'}
+                `);
+                
+                // Store airport code in marker data for easy access
+                marker.airportCode = airportCode;
+                airportMarkers.push(marker);
+            }
+            airports.forEach(airportCode => {
+                const coords = airportCoords[airportCode];
+                if (coords) {
+                    const isMajor = majorAirports.includes(airportCode);
+                    const flightCount = airportCounts[airportCode] || 0;
+                    
+                    addMarker(coords, isMajor, flightCount, airportCode);
+                    if (coords[1] > 90) {
+                        coords[1] = coords[1] - 360;
+                        addMarker(coords, isMajor, flightCount, airportCode);
+                    }
+                }
+            });
+
+            // Create flight routes with great circle arcs
+            filteredFlights.forEach(flight => {
+                const from = flight.From;
+                const to = flight.To;
+                const fromCoords = airportCoords[from];
+                const toCoords = airportCoords[to];
+                
+                if (fromCoords && toCoords) {
+                    const routeKey = [from, to].sort().join('-');
+                    
+                    // Only draw each route once (avoid duplicates)
+                    if (!processedRoutes.has(routeKey)) {
+                        // Create great circle arc
+                        const arcPoints = createGreatCircleArc(fromCoords, toCoords);
+                        
+                        // Create invisible thicker line for easier clicking
+                        const clickableLine = L.polyline(arcPoints, {
+                            color: 'transparent',
+                            weight: 12,
+                            opacity: 0,
+                            interactive: true
+                        }).addTo(map);
+                        
+                        // Create visible line on top
+                        const line = L.polyline(arcPoints, {
+                            color: '#ff6b6b',
+                            weight: 2,
+                            opacity: 0.7
+                        }).addTo(map);
+                        
+                        const routeCount = routeCounts[routeKey] || 0;
+                        // Use alphabetical order for consistent display
+                        const [sortedFrom, sortedTo] = routeKey.split('-');
+                        line.bindPopup(`
+                            <strong>${sortedFrom} ↔ ${sortedTo}</strong><br>
+                            Flights: ${routeCount}
+                        `);
+                        
+                        // Store airport codes in route line data for easy filtering
+                        line.fromAirport = sortedFrom;
+                        line.toAirport = sortedTo;
+
+                        // Add click handler to highlight route when clicked directly
+                        line.on('click', function() {
+                            highlightRoute(line, from, to);
+                        });
+                        
+                        // Add same click handler to invisible clickable line
+                        clickableLine.on('click', function(e) {
+                            // Check if there's an airport nearby (within 20 pixels)
+                            const clickPoint = e.containerPoint;
+                            let nearbyAirport = null;
+                            let minDistance = 20; // pixels
+                            
+                            airportMarkers.forEach(marker => {
+                                const markerPoint = map.latLngToContainerPoint(marker.getLatLng());
+                                const distance = Math.sqrt(
+                                    Math.pow(clickPoint.x - markerPoint.x, 2) + 
+                                    Math.pow(clickPoint.y - markerPoint.y, 2)
+                                );
+                                
+                                if (distance < minDistance) {
+                                    minDistance = distance;
+                                    nearbyAirport = marker;
+                                }
+                            });
+                            
+                            // If there's a nearby airport, click it instead
+                            if (nearbyAirport) {
+                                // Close any open popups first
+                                map.closePopup();
+                                
+                                // Reset any selected route to normal style
+                                if (selectedRouteLine) {
+                                    selectedRouteLine.setStyle({
+                                        color: '#ff6b6b',
+                                        weight: 2,
+                                        opacity: 0.7
+                                    });
+                                    selectedRouteLine = null;
+                                }
+                                
+                                nearbyAirport.openPopup();
+                                const coords = nearbyAirport.getLatLng();
+                                
+                                // Filter routes by airport if enabled
+                                isAirportClicking = true;
+                                const airportCode = nearbyAirport.airportCode;
+                                if (airportCode) {
+                                    lastClickedAirport = airportCode;
+                                    filterRoutesByAirport(airportCode);
+                                    
+                                    // If both auto zoom and filtering are enabled, zoom to filtered routes
+                                    if (checkAutoZoom() && checkAirportFiltering()) {
+                                        // Calculate bounds of filtered routes
+                                        const filteredRoutes = routeLines.filter(line => {
+                                            return line.fromAirport === airportCode || line.toAirport === airportCode;
+                                        });
+                                        
+                                        if (filteredRoutes.length > 0) {
+                                            // Get all points from filtered routes
+                                            const allPoints = [];
+                                            filteredRoutes.forEach(line => {
+                                                const latLngs = line.getLatLngs();
+                                                allPoints.push(...latLngs);
+                                            });
+                                            
+                                            if (allPoints.length > 0) {
+                                                const bounds = L.latLngBounds(allPoints);
+                                                map.fitBounds(bounds, { padding: [100, 100] });
+                                            }
+                                        } else {
+                                            // Fallback to airport location if no routes found
+                                            map.setView(coords, Math.max(map.getZoom(), 6));
+                                        }
+                                    } else if (checkAutoZoom()) {
+                                        // Just auto zoom to airport if filtering is disabled
+                                        map.setView(coords, Math.max(map.getZoom(), 6));
+                                    }
+                                }
+                                setTimeout(() => { isAirportClicking = false; }, 200);
+                            } else {
+                                // Otherwise, highlight the route
+                                highlightRoute(line, from, to);
+                            }
+                        });
+
+                        routeLines.push(line);
+                        processedRoutes.add(routeKey);
+                    }
+                }
+            });
+
+            // Update statistics
+            document.getElementById('total-flights').textContent = filteredFlights.length;
+            document.getElementById('total-airports').textContent = airports.size;
+            document.getElementById('total-routes').textContent = processedRoutes.size;
+            
+            // Update top 10 statistics (use filtered flights for display)
+            updateTop10Stats(filteredFlights, routeCounts, airportCounts);
+            
+            // Update additional statistics (use filtered flights for display)
+            updateAdditionalStats(filteredFlights);
+        }
+
+        // Update top 10 statistics
+        function updateTop10Stats(flights, routeCounts, airportCounts) {
+            // Calculate airline counts
+            const airlineCounts = {};
+            flights.forEach(flight => {
+                const airline = flight.Airline || 'Unknown';
+                airlineCounts[airline] = (airlineCounts[airline] || 0) + 1;
+            });
+
+            // Get top 10 routes
+            const topRoutes = Object.entries(routeCounts)
+                .filter(([route, count]) => count > 0)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+            // Get top 10 airports
+            const topAirports = Object.entries(airportCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+            // Get top 10 airlines
+            const topAirlines = Object.entries(airlineCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+            // Display top routes
+            const routesContainer = document.getElementById('top-routes');
+            routesContainer.innerHTML = topRoutes.map(([route, count]) => {
+                const [from, to] = route.split('-');
+                return `<div class="stat-item">
+                    <span class="stat-name">
+                        <span class="clickable-airport" data-airport="${from}">${from}</span><span class="clickable-route" data-route="${route}" data-from="${from}" data-to="${to}">↔</span><span class="clickable-airport" data-airport="${to}">${to}</span>
+                    </span>
+                    <span class="stat-count">${count}</span>
+                </div>`;
+            }).join('');
+
+            // Display top airports
+            const airportsContainer = document.getElementById('top-airports');
+            airportsContainer.innerHTML = topAirports.map(([airportCode, count]) => {
+                // Try to get airport name from OpenFlights data or use code
+                const airportName = getAirportName(airportCode);
+                return `<div class="stat-item">
+                    <span class="stat-name clickable-airport" data-airport="${airportCode}" title="${airportName}">${airportName}</span>
+                    <span class="stat-count">${count}</span>
+                </div>`;
+            }).join('');
+
+            // Display top airlines
+            const airlinesContainer = document.getElementById('top-airlines');
+            airlinesContainer.innerHTML = topAirlines.map(([airline, count]) => {
+                return `<div class="stat-item">
+                    <span class="stat-name">${airline}</span>
+                    <span class="stat-count">${count}</span>
+                </div>`;
+            }).join('');
+        }
+
+        // Update additional statistics
+        function updateAdditionalStats(flights) {
+            // Calculate unique carriers
+            const uniqueCarriers = new Set();
+            flights.forEach(flight => {
+                if (flight.Airline && flight.Airline.trim()) {
+                    uniqueCarriers.add(flight.Airline);
+                }
+            });
+            document.getElementById('unique-carriers').textContent = uniqueCarriers.size;
+
+            // Calculate total miles and find longest/shortest flights
+            let totalMiles = 0;
+            let longestFlight = null;
+            let shortestFlight = null;
+            let maxDistance = 0;
+            let minDistance = Infinity;
+
+            flights.forEach(flight => {
+                // Calculate distance if not already set
+                if (!flight.Distance) {
+                    flight.Distance = calculateFlightDistance(flight.From, flight.To);
+                }
+                const distance = flight.Distance || 0;
+                totalMiles += distance;
+                
+                if (distance > maxDistance) {
+                    maxDistance = distance;
+                    longestFlight = flight;
+                }
+                if (distance > 0 && distance < minDistance) {
+                    minDistance = distance;
+                    shortestFlight = flight;
+                }
+            });
+
+            document.getElementById('total-miles').textContent = Math.round(totalMiles).toLocaleString();
+
+            // Display longest flight
+            if (longestFlight) {
+                const from = longestFlight.From;
+                const to = longestFlight.To;
+                const distance = Math.round(longestFlight.Distance || 0);
+                const route = [from, to].sort().join('-');
+                document.getElementById('longest-flight').innerHTML = 
+                    `<span class="clickable-airport" data-airport="${from}">${from}</span><span class="clickable-route" data-route="${route}" data-from="${from}" data-to="${to}">↔</span><span class="clickable-airport" data-airport="${to}">${to}</span>, ${distance} miles`;
+            }
+
+            // Display shortest flight
+            if (shortestFlight) {
+                const from = shortestFlight.From;
+                const to = shortestFlight.To;
+                const distance = Math.round(shortestFlight.Distance || 0);
+                const route = [from, to].sort().join('-');
+                document.getElementById('shortest-flight').innerHTML = 
+                    `<span class="clickable-airport" data-airport="${from}">${from}</span><span class="clickable-route" data-route="${route}" data-from="${from}" data-to="${to}">↔</span><span class="clickable-airport" data-airport="${to}">${to}</span>, ${distance} miles`;
+            }
+
+            // Calculate airport records
+            let northernmost = null, southernmost = null, easternmost = null, westernmost = null;
+            let maxLat = -90, minLat = 90, maxLon = -180, minLon = 180;
+
+            flights.forEach(flight => {
+                const fromCoords = airportCoords[flight.From];
+                const toCoords = airportCoords[flight.To];
+                
+                // Check both From and To airports
+                const airports = [
+                    { code: flight.From, coords: fromCoords },
+                    { code: flight.To, coords: toCoords }
+                ];
+                
+                airports.forEach(airport => {
+                    if (airport.coords) {
+                        let [lat, lon] = airport.coords;
+                        
+                        // Normalize longitude for easternmost/westernmost calculations
+                        if (lon < -180) {
+                            lon = lon + 360;
+                        }
+                        
+                        if (lat > maxLat) {
+                            maxLat = lat;
+                            northernmost = airport.code;
+                        }
+                        if (lat < minLat) {
+                            minLat = lat;
+                            southernmost = airport.code;
+                        }
+                        if (lon > maxLon) {
+                            maxLon = lon;
+                            easternmost = airport.code;
+                        }
+                        if (lon < minLon) {
+                            minLon = lon;
+                            westernmost = airport.code;
+                        }
+                    }
+                });
+            });
+
+            // Helper function to format coordinates with proper directions
+            function formatCoords(lat, lon) {
+                // Normalize longitude
+                if (lon < -180) lon = lon + 360;
+                
+                // Determine latitude direction
+                const latDir = lat >= 0 ? 'N' : 'S';
+                const latVal = Math.abs(lat).toFixed(2);
+                
+                // Determine longitude direction
+                const lonDir = lon >= 0 ? 'E' : 'W';
+                const lonVal = Math.abs(lon).toFixed(2);
+                
+                return `${latVal}°${latDir} ${lonVal}°${lonDir}`;
+            }
+            
+            // Display airport records
+            if (northernmost) {
+                const coords = airportCoords[northernmost];
+                document.getElementById('northernmost').innerHTML = 
+                    `<span class="clickable-airport" data-airport="${northernmost}">${northernmost}</span> (${formatCoords(coords[0], coords[1])})`;
+            }
+            if (southernmost) {
+                const coords = airportCoords[southernmost];
+                document.getElementById('southernmost').innerHTML = 
+                    `<span class="clickable-airport" data-airport="${southernmost}">${southernmost}</span> (${formatCoords(coords[0], coords[1])})`;
+            }
+            if (easternmost) {
+                const coords = airportCoords[easternmost];
+                document.getElementById('easternmost').innerHTML = 
+                    `<span class="clickable-airport" data-airport="${easternmost}">${easternmost}</span> (${formatCoords(coords[0], coords[1])})`;
+            }
+            if (westernmost) {
+                const coords = airportCoords[westernmost];
+                document.getElementById('westernmost').innerHTML = 
+                    `<span class="clickable-airport" data-airport="${westernmost}">${westernmost}</span> (${formatCoords(coords[0], coords[1])})`;
+            }
+        }
+
+        // Function to highlight a route line
+        function highlightRoute(line, from, to) {
+            // Close any open popups first
+            map.closePopup();
+            
+            // Reset previously selected route to normal style
+            if (selectedRouteLine) {
+                selectedRouteLine.setStyle({
+                    color: '#ff6b6b',
+                    weight: 2,
+                    opacity: 0.7
+                });
+            }
+            
+            // Highlight the selected route
+            line.setStyle({
+                color: '#ff0000',
+                weight: 4,
+                opacity: 1
+            });
+            selectedRouteLine = line;
+            
+            // Open popup and center map on route
+            line.openPopup();
+            const fromCoords = airportCoords[from];
+            const toCoords = airportCoords[to];
+            if (fromCoords && toCoords && checkAutoZoom()) {
+                // Use great circle arc points for proper bounds calculation
+                const arcPoints = createGreatCircleArc(fromCoords, toCoords);
+                const bounds = L.latLngBounds(arcPoints);
+                map.fitBounds(bounds, { padding: [100, 100] });
+            }
+        }
+
+        // Add click handlers for clickable airports and routes
+        function addAirportClickHandlers() {
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('clickable-airport')) {
+                    const airportCode = e.target.getAttribute('data-airport');
+                    const coords = airportCoords[airportCode];
+                    
+                    if (coords) {
+                        // Close any open popups first
+                        map.closePopup();
+                        
+                        // Reset any selected route to normal style
+                        if (selectedRouteLine) {
+                            selectedRouteLine.setStyle({
+                                color: '#ff6b6b',
+                                weight: 2,
+                                opacity: 0.7
+                            });
+                            selectedRouteLine = null;
+                        }
+                        
+                        // Find the corresponding marker and open its popup
+                        airportMarkers.forEach(marker => {
+                            const markerCoords = marker.getLatLng();
+                            if (Math.abs(markerCoords.lat - coords[0]) < 0.001 && 
+                                Math.abs(markerCoords.lng - coords[1]) < 0.001) {
+                                marker.openPopup();
+                                
+                                // Filter routes by airport if enabled
+                                isAirportClicking = true;
+                                const airportCode = marker.airportCode;
+                                if (airportCode) {
+                                    lastClickedAirport = airportCode;
+                                    filterRoutesByAirport(airportCode);
+                                    
+                                    // If both auto zoom and filtering are enabled, zoom to filtered routes
+                                    if (checkAutoZoom() && checkAirportFiltering()) {
+                                        // Calculate bounds of filtered routes
+                                        const filteredRoutes = routeLines.filter(line => {
+                                            return line.fromAirport === airportCode || line.toAirport === airportCode;
+                                        });
+                                        
+                                        if (filteredRoutes.length > 0) {
+                                            // Get all points from filtered routes
+                                            const allPoints = [];
+                                            filteredRoutes.forEach(line => {
+                                                const latLngs = line.getLatLngs();
+                                                allPoints.push(...latLngs);
+                                            });
+                                            
+                                            if (allPoints.length > 0) {
+                                                const bounds = L.latLngBounds(allPoints);
+                                                map.fitBounds(bounds, { padding: [100, 100] });
+                                            }
+                                        } else {
+                                            // Fallback to airport location if no routes found
+                                            map.setView(coords, Math.max(map.getZoom(), 6));
+                                        }
+                                    } else if (checkAutoZoom()) {
+                                        // Just auto zoom to airport if filtering is disabled
+                                        map.setView(coords, Math.max(map.getZoom(), 6));
+                                    }
+                                }
+                                setTimeout(() => { isAirportClicking = false; }, 200);
+                            }
+                        });
+                    }
+                } else if (e.target.classList.contains('clickable-route')) {
+                    const route = e.target.getAttribute('data-route');
+                    const from = e.target.getAttribute('data-from');
+                    const to = e.target.getAttribute('data-to');
+                    
+                    // Restore all routes if airport filtering is enabled
+                    if (checkAirportFiltering() && filteredAirport !== null) {
+                        restoreAllRoutes();
+                    }
+                    
+                    // Find the corresponding route line and highlight it
+                    const [sortedFrom, sortedTo] = route.split('-');
+                    routeLines.forEach(line => {
+                        if (line.fromAirport === sortedFrom && line.toAirport === sortedTo) {
+                            highlightRoute(line, sortedFrom, sortedTo);
+                        }
+                    });
+                }
+            });
+        }
+
+        // Get airport name from code using OpenFlights data
+        function getAirportName(airportCode) {
+            return airportNames[airportCode] || `${airportCode} Airport`;
+        }
+
+        // Panel state variables
+        let top10PanelCollapsed = false;
+        let statsPanelCollapsed = false;
+
+        // Control functions
+        // Airport filtering state
+        let filteredAirport = null;
+        let originalRouteLines = [];
+        let isAirportClicking = false;
+        let lastClickedAirport = null;
+        let flightListGroupBy = 'none'; // 'none' | 'year' | 'year-month'
+
+        function checkAutoZoom() {
+            const checkbox = document.getElementById('autoZoom');
+            return checkbox ? checkbox.checked : true;
+        }
+
+        function checkAirportFiltering() {
+            const checkbox = document.getElementById('airportFlightsOnly');
+            return checkbox ? checkbox.checked : false;
+        }
+
+        function checkFamilyOnly() {
+            const checkbox = document.getElementById('familyOnly');
+            return checkbox ? checkbox.checked : false;
+        }
+
+        function getFilteredFlights() {
+            let filtered = flights;
+            if (checkFamilyOnly()) {
+                filtered = filtered.filter(flight => flight.Purpose === 'Family');
+            }
+            return filtered;
+        }
+
+        function resetView() {
+            map.setView([20, -120], 2);
+        }
+
+        function showFlightList() {
+            const modal = document.getElementById('flightListModal');
+            const content = document.getElementById('flightListContent');
+            const select = document.getElementById('groupBySelect');
+            
+            // Disable all other page interactions
+            document.body.style.overflow = 'hidden';
+            document.getElementById('map').style.pointerEvents = 'none';
+            
+            if (select) {
+                select.value = flightListGroupBy;
+                select.onchange = () => {
+                    flightListGroupBy = select.value;
+                    populateFlightList();
+                };
+            }
+
+            // Populate flight list
+            populateFlightList();
+            
+            // Show modal
+            modal.style.display = 'flex';
+            
+            // Add click handler to close modal when clicking outside
+            modal.onclick = function(event) {
+                if (event.target === modal) {
+                    hideFlightList();
+                }
+            };
+        }
+
+        function hideFlightList() {
+            const modal = document.getElementById('flightListModal');
+            
+            // Re-enable page interactions
+            document.body.style.overflow = 'auto';
+            document.getElementById('map').style.pointerEvents = 'auto';
+            
+            // Hide modal
+            modal.style.display = 'none';
+        }
+
+        function populateFlightList() {
+            const content = document.getElementById('flightListContent');
+            content.innerHTML = '';
+            
+            if (!flights || flights.length === 0) {
+                content.innerHTML = '<p>No flights loaded. Please load a CSV file first.</p>';
+                return;
+            }
+
+            // Helper: extract year from common date formats
+            function getFlightYear(dateStr) {
+                if (!dateStr) return null;
+                const match = String(dateStr).match(/(19|20)\d{2}/);
+                return match ? parseInt(match[0], 10) : null;
+            }
+            // Helper: extract month 1-12 from date string (YYYY-MM-DD or similar)
+            function getFlightMonth(dateStr) {
+                if (!dateStr) return null;
+                const s = String(dateStr).trim();
+                const parts = s.split(/[-/]/);
+                if (parts.length >= 2) {
+                    const m = parseInt(parts[1], 10);
+                    if (m >= 1 && m <= 12) return m;
+                }
+                const match = s.match(/(19|20)\d{2}-?(\d{1,2})/);
+                if (match) {
+                    const m = parseInt(match[2], 10);
+                    if (m >= 1 && m <= 12) return m;
+                }
+                return null;
+            }
+
+            if (flightListGroupBy === 'year-month') {
+                // Pivot: rows = years + Total, cols = Jan..Dec + Total
+                const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                const pivot = {};       // year -> { month -> count }
+                const yearTotals = {};  // year -> total
+                const monthTotals = {}; // month 1..12 -> total
+                let grandTotal = 0;
+
+                const filteredFlights = getFilteredFlights();
+                filteredFlights.forEach((flight) => {
+                    const year = getFlightYear(flight.Date);
+                    const month = getFlightMonth(flight.Date);
+                    if (!year) return;
+                    if (!pivot[year]) pivot[year] = {};
+                    if (!month) return;
+                    pivot[year][month] = (pivot[year][month] || 0) + 1;
+                    yearTotals[year] = (yearTotals[year] || 0) + 1;
+                    monthTotals[month] = (monthTotals[month] || 0) + 1;
+                    grandTotal += 1;
+                });
+
+                const years = Object.keys(pivot).map(Number).sort((a, b) => b - a);
+                if (years.length === 0) {
+                    content.innerHTML = '<p>No year/month could be parsed from the flight dates.</p>';
+                    return;
+                }
+
+                // Max count in data grid (for green shading: darkest = max)
+                let maxCount = 0;
+                years.forEach((y) => {
+                    for (let m = 1; m <= 12; m++) {
+                        const c = (pivot[y] && pivot[y][m]) || 0;
+                        if (c > maxCount) maxCount = c;
+                    }
+                });
+                // Max for year totals (Total column) and month totals (Total row)
+                let maxYearTotal = 0;
+                years.forEach((y) => {
+                    const ct = yearTotals[y] || 0;
+                    if (ct > maxYearTotal) maxYearTotal = ct;
+                });
+                let maxMonthTotal = 0;
+                for (let m = 1; m <= 12; m++) {
+                    const ct = monthTotals[m] || 0;
+                    if (ct > maxMonthTotal) maxMonthTotal = ct;
+                }
+                function greenShade(value, max) {
+                    if (value === 0) return 'rgb(255, 255, 255)';
+                    if (max === 0) return 'rgb(255, 255, 255)';
+                    const t = value / max;
+                    // Light green -> medium green (not too dark)
+                    const r = Math.round(232 + (56 - 232) * t);
+                    const g = Math.round(245 + (142 - 245) * t);
+                    const b = Math.round(233 + (60 - 233) * t);
+                    return `rgb(${r},${g},${b})`;
+                }
+
+                const table = document.createElement('table');
+                table.className = 'flight-table';
+                const thead = document.createElement('thead');
+                let headerHtml = '<tr><th class="date-col">Year</th>';
+                for (let m = 1; m <= 12; m++) headerHtml += `<th class="center-col">${monthNames[m-1]}</th>`;
+                headerHtml += '<th class="center-col pivot-total">Total</th></tr>';
+                thead.innerHTML = headerHtml;
+                table.appendChild(thead);
+
+                const tbody = document.createElement('tbody');
+                years.forEach((year) => {
+                    const row = document.createElement('tr');
+                    let rowHtml = `<td class="date-col">${year}</td>`;
+                    for (let m = 1; m <= 12; m++) {
+                        const count = (pivot[year] && pivot[year][m]) || 0;
+                        const bg = greenShade(count, maxCount);
+                        rowHtml += `<td class="center-col" style="background-color: ${bg}">${count > 0 ? count.toLocaleString() : ''}</td>`;
+                    }
+                    const yearTotal = yearTotals[year] || 0;
+                    const yearTotalBg = greenShade(yearTotal, maxYearTotal);
+                    rowHtml += `<td class="center-col pivot-total" style="background-color: ${yearTotalBg}">${yearTotal.toLocaleString()}</td>`;
+                    row.innerHTML = rowHtml;
+                    tbody.appendChild(row);
+                });
+                // Total row
+                const totalRow = document.createElement('tr');
+                totalRow.className = 'pivot-total';
+                let totalRowHtml = '<td class="date-col pivot-total">Total</td>';
+                for (let m = 1; m <= 12; m++) {
+                    const count = monthTotals[m] || 0;
+                    const monthTotalBg = greenShade(count, maxMonthTotal);
+                    totalRowHtml += `<td class="center-col pivot-total" style="background-color: ${monthTotalBg}">${count > 0 ? count.toLocaleString() : ''}</td>`;
+                }
+                totalRowHtml += `<td class="center-col pivot-total">${grandTotal.toLocaleString()}</td>`;
+                totalRow.innerHTML = totalRowHtml;
+                tbody.appendChild(totalRow);
+
+                table.appendChild(tbody);
+                content.appendChild(table);
+                return;
+            }
+
+            if (flightListGroupBy === 'year') {
+                const byYear = new Map(); // year -> { flights: number, distance: number, business: number }
+
+                const filteredFlights = getFilteredFlights();
+                filteredFlights.forEach((flight) => {
+                    const year = getFlightYear(flight.Date);
+                    if (!year) return;
+                    // Calculate distance if not already set
+                    if (!flight.Distance) {
+                        flight.Distance = calculateFlightDistance(flight.From, flight.To);
+                    }
+                    const distance = flight.Distance || 0;
+                    const cur = byYear.get(year) || { flights: 0, distance: 0, business: 0 };
+                    cur.flights += 1;
+                    if (!isNaN(distance)) cur.distance += distance;
+                    if (flight.Purpose === 'Business') {
+                        cur.business += 1;
+                    }
+                    byYear.set(year, cur);
+                });
+
+                if (byYear.size === 0) {
+                    content.innerHTML = '<p>No years could be parsed from the flight dates.</p>';
+                    return;
+                }
+
+                // Create summary table
+                const table = document.createElement('table');
+                table.className = 'flight-table';
+
+                const thead = document.createElement('thead');
+                thead.innerHTML = `
+                    <tr>
+                        <th class="date-col">Year</th>
+                        <th class="center-col">Total flights</th>
+                        <th class="center-col">Total distance</th>
+                        <th class="center-col">Business flights</th>
+                    </tr>
+                `;
+                table.appendChild(thead);
+
+                const tbody = document.createElement('tbody');
+                const years = Array.from(byYear.keys()).sort((a, b) => b - a);
+                years.forEach((year) => {
+                    const row = document.createElement('tr');
+                    const agg = byYear.get(year);
+                    const businessPct = agg.flights > 0 ? Math.round((agg.business / agg.flights) * 100) : 0;
+                    row.innerHTML = `
+                        <td class="date-col">${year}</td>
+                        <td class="center-col">${agg.flights.toLocaleString()}</td>
+                        <td class="center-col">${Math.round(agg.distance).toLocaleString()} mi</td>
+                        <td class="center-col">${agg.business.toLocaleString()} (${businessPct}%)</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                table.appendChild(tbody);
+                content.appendChild(table);
+                return;
+            }
+            
+            // Create table
+            const table = document.createElement('table');
+            table.className = 'flight-table';
+            
+            // Create header
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr>
+                    <th class="date-col">Date</th>
+                    <th class="from-col">From</th>
+                    <th class="to-col">To</th>
+                    <th class="carrier-col">Carrier</th>
+                    <th class="purpose-col">Purpose</th>
+                    <th class="distance-col">Distance</th>
+                </tr>
+            `;
+            table.appendChild(thead);
+            
+            // Create body
+            const tbody = document.createElement('tbody');
+            const filteredFlights = getFilteredFlights();
+            filteredFlights.forEach((flight, index) => {
+                const row = document.createElement('tr');
+                row.onclick = () => highlightFlight(flight);
+                
+                const fromCode = flight.From || 'Unknown';
+                const toCode = flight.To || 'Unknown';
+                // Calculate distance if not already set
+                if (!flight.Distance) {
+                    flight.Distance = calculateFlightDistance(flight.From, flight.To);
+                }
+                const distance = flight.Distance ? `${Math.round(flight.Distance).toLocaleString()} mi` : 'Unknown';
+                const carrier = flight.Airline || 'Unknown';
+                const purpose = flight.Purpose || 'Unknown';
+                let purposeClass = '';
+                if (purpose === 'Business') {
+                    purposeClass = 'purpose-business';
+                } else if (purpose === 'Personal') {
+                    purposeClass = 'purpose-personal';
+                } else if (purpose === 'Couple') {
+                    purposeClass = 'purpose-couple';
+                } else if (purpose === 'Family') {
+                    purposeClass = 'purpose-family';
+                }
+                const date = flight.Date || 'Unknown';
+                
+                row.innerHTML = `
+                    <td class="date-col">${date}</td>
+                    <td class="from-col">${fromCode}</td>
+                    <td class="to-col">${toCode}</td>
+                    <td class="carrier-col">${carrier}</td>
+                    <td class="purpose-col ${purposeClass}">${purpose}</td>
+                    <td class="distance-col">${distance}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            table.appendChild(tbody);
+            content.appendChild(table);
+        }
+
+        function highlightFlight(flight) {
+            // Close the modal
+            hideFlightList();
+            
+            // Sort airport codes alphabetically to match route storage format
+            const sortedFrom = [flight.From, flight.To].sort()[0];
+            const sortedTo = [flight.From, flight.To].sort()[1];
+            
+            // Find and highlight the route using existing function
+            const routeLine = routeLines.find(line => 
+                line.fromAirport === sortedFrom && line.toAirport === sortedTo
+            );
+            
+            if (routeLine) {
+                highlightRoute(routeLine, sortedFrom, sortedTo);
+            }
+        }
+
+        function filterRoutesByAirport(airportCode) {
+            if (!checkAirportFiltering()) {
+                return;
+            }
+            
+            // Store original state if not already filtered
+            if (filteredAirport === null) {
+                originalRouteLines = [...routeLines];
+            }
+            
+            // Hide all current routes
+            routeLines.forEach(line => {
+                map.removeLayer(line);
+            });
+            
+            // Show only routes connected to this airport
+            const filteredRoutes = originalRouteLines.filter(line => {
+                return line.fromAirport === airportCode || line.toAirport === airportCode;
+            });
+            
+            // Add filtered routes back to map
+            filteredRoutes.forEach(line => {
+                map.addLayer(line);
+            });
+            
+            // Update routeLines array to only include filtered routes for proper restoration
+            routeLines = filteredRoutes;
+            
+            filteredAirport = airportCode;
+        }
+
+        function restoreAllRoutes() {
+            if (filteredAirport === null) {
+                return;
+            }
+            
+            // Hide filtered routes
+            routeLines.forEach(line => map.removeLayer(line));
+            
+            // Restore all original routes
+            originalRouteLines.forEach(line => map.addLayer(line));
+            
+            // Update routeLines array to include all original routes
+            routeLines = [...originalRouteLines];
+            originalRouteLines = [];
+            filteredAirport = null;
+        }
+
+        function toggleTop10Panel() {
+            top10PanelCollapsed = !top10PanelCollapsed;
+            const content = document.getElementById('top10-content');
+            const button = event.target;
+            
+            if (top10PanelCollapsed) {
+                content.classList.add('collapsed');
+                button.textContent = '+';
+            } else {
+                content.classList.remove('collapsed');
+                button.textContent = '−';
+            }
+        }
+
+        function toggleStatsPanel() {
+            statsPanelCollapsed = !statsPanelCollapsed;
+            const content = document.getElementById('stats-content');
+            const button = event.target;
+            
+            if (statsPanelCollapsed) {
+                content.classList.add('collapsed');
+                button.textContent = '+';
+            } else {
+                content.classList.remove('collapsed');
+                button.textContent = '−';
+            }
+        }
+
+        // Make functions global
+        window.resetView = resetView;
+        window.toggleTop10Panel = toggleTop10Panel;
+        window.toggleStatsPanel = toggleStatsPanel;
+
+        // Initialize airport coordinates when page loads
+        loadAirportCoords();
+        
+        // Add click handlers for clickable airports
+        addAirportClickHandlers();
+        
+        // Clear last clicked airport when popup is closed
+        map.on('popupclose', function() {
+            lastClickedAirport = null;
+        });
+        
+        // Add map click handler to restore all routes when clicking empty space
+        map.on('click', function(e) {
+            // Don't restore if we're in the middle of an airport click
+            if (isAirportClicking) {
+                return;
+            }
+            
+            if (checkAirportFiltering() && filteredAirport !== null) {
+                restoreAllRoutes();
+            }
+        });
+        
+        // Add event listener for filtering checkboxes
+        document.addEventListener('change', function(e) {
+            if (e.target.id === 'airportFlightsOnly') {
+                if (!e.target.checked) {
+                    // If filter is disabled, restore all routes
+                    restoreAllRoutes();
+                } else {
+                    // If filter is enabled and we have a last clicked airport, apply filtering
+                    if (lastClickedAirport) {
+                        filterRoutesByAirport(lastClickedAirport);
+                    }
+                }
+            } else if (e.target.id === 'familyOnly') {
+                // Re-render map when family filter changes
+                renderFlightMap();
+            }
+        });
+    </script>
+</body>
+</html>
