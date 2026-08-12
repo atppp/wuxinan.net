@@ -80,6 +80,8 @@
 
         .actions {
             display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
             gap: 6px;
         }
 
@@ -87,12 +89,13 @@
             font: inherit;
             font-size: 0.8rem;
             font-weight: 600;
-            padding: 8px 12px;
+            padding: 8px 10px;
             border: 1px solid rgba(255, 255, 255, 0.14);
             border-radius: 8px;
             background: rgba(56, 189, 248, 0.12);
             color: #e8eef7;
             cursor: pointer;
+            white-space: nowrap;
         }
 
         button:hover:not(:disabled) {
@@ -226,7 +229,8 @@
             <div class="status-text" id="status">X to move — anywhere</div>
             <div class="actions">
                 <button type="button" id="undoBtn" disabled>Undo</button>
-                <button type="button" id="newBtn">New game</button>
+                <button type="button" id="newXBtn">New · X</button>
+                <button type="button" id="newOBtn">New · O</button>
             </div>
         </div>
 
@@ -247,10 +251,13 @@
             [0, 4, 8], [2, 4, 6],
         ];
 
+        const STORAGE_KEY = 'uttt-state-v1';
+
         const statusEl = document.getElementById('status');
         const bigBoardEl = document.getElementById('bigBoard');
         const undoBtn = document.getElementById('undoBtn');
-        const newBtn = document.getElementById('newBtn');
+        const newXBtn = document.getElementById('newXBtn');
+        const newOBtn = document.getElementById('newOBtn');
 
         let boards;
         let winners;
@@ -298,14 +305,57 @@
             winner = s.winner;
         }
 
-        function reset() {
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    boards,
+                    winners,
+                    nextBoard,
+                    current,
+                    winner,
+                    history,
+                }));
+            } catch (_) { /* quota / private mode */ }
+        }
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return false;
+                const data = JSON.parse(raw);
+                if (!data || !Array.isArray(data.boards) || data.boards.length !== 9) return false;
+                if (!Array.isArray(data.winners) || data.winners.length !== 9) return false;
+                if (data.current !== 'X' && data.current !== 'O') return false;
+                if (!Array.isArray(data.history)) return false;
+                boards = data.boards.map((b) => Array.isArray(b) && b.length === 9 ? b.slice() : Array(9).fill(null));
+                winners = data.winners.slice();
+                nextBoard = data.nextBoard === null || (Number.isInteger(data.nextBoard) && data.nextBoard >= 0 && data.nextBoard < 9)
+                    ? data.nextBoard
+                    : null;
+                current = data.current;
+                winner = data.winner === 'X' || data.winner === 'O' || data.winner === 'draw' ? data.winner : null;
+                history = data.history.map((s) => ({
+                    boards: s.boards.map((b) => b.slice()),
+                    winners: s.winners.slice(),
+                    nextBoard: s.nextBoard,
+                    current: s.current,
+                    winner: s.winner,
+                }));
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function reset(firstPlayer) {
             boards = emptyBoards();
             winners = Array(9).fill(null);
             nextBoard = null;
-            current = 'X';
+            current = firstPlayer === 'O' ? 'O' : 'X';
             winner = null;
             history = [];
             render();
+            saveState();
         }
 
         function legalBoard(i) {
@@ -335,12 +385,14 @@
             }
 
             render();
+            saveState();
         }
 
         function undo() {
             if (!history.length) return;
             restore(history.pop());
             render();
+            saveState();
         }
 
         function mark(player) {
@@ -410,13 +462,17 @@
             updateStatus();
         }
 
-        undoBtn.addEventListener('click', undo);
-        newBtn.addEventListener('click', () => {
+        function confirmNew(firstPlayer) {
             if (history.length && !confirm('Start a new game?')) return;
-            reset();
-        });
+            reset(firstPlayer);
+        }
 
-        reset();
+        undoBtn.addEventListener('click', undo);
+        newXBtn.addEventListener('click', () => confirmNew('X'));
+        newOBtn.addEventListener('click', () => confirmNew('O'));
+
+        if (loadState()) render();
+        else reset('X');
     </script>
 </body>
 </html>
