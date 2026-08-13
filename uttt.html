@@ -210,6 +210,44 @@
             text-align: center;
         }
 
+        .dialog-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(7, 11, 20, 0.72);
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            z-index: 10;
+        }
+
+        .dialog-backdrop.show { display: flex; }
+
+        .dialog {
+            width: min(320px, 100%);
+            background: #132033;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            padding: 18px 16px 14px;
+            text-align: center;
+        }
+
+        .dialog h2 {
+            font-size: 1rem;
+            font-weight: 650;
+            margin-bottom: 14px;
+        }
+
+        .dialog-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .dialog-actions button { min-width: 64px; }
+        .dialog-actions .x { color: #38bdf8; }
+        .dialog-actions .o { color: #f472b6; }
+
         @media (max-width: 480px) {
             header h1 { font-size: 1.2rem; }
             .big-board { gap: 5px; padding: 5px; }
@@ -229,8 +267,7 @@
             <div class="status-text" id="status">X to move — anywhere</div>
             <div class="actions">
                 <button type="button" id="undoBtn" disabled>Undo</button>
-                <button type="button" id="newXBtn">New · X</button>
-                <button type="button" id="newOBtn">New · O</button>
+                <button type="button" id="newBtn">New game</button>
             </div>
         </div>
 
@@ -242,6 +279,17 @@
             Play in a cell of a mini-board. Next player must play in the matching mini-board
             (same position). If that board is already won or full, they can play anywhere.
         </p>
+    </div>
+
+    <div class="dialog-backdrop" id="newDialog">
+        <div class="dialog" role="dialog" aria-labelledby="newDialogTitle">
+            <h2 id="newDialogTitle">Who goes first?</h2>
+            <div class="dialog-actions">
+                <button type="button" id="firstXBtn" class="x">X</button>
+                <button type="button" id="firstOBtn" class="o">O</button>
+                <button type="button" id="cancelNewBtn">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -256,8 +304,11 @@
         const statusEl = document.getElementById('status');
         const bigBoardEl = document.getElementById('bigBoard');
         const undoBtn = document.getElementById('undoBtn');
-        const newXBtn = document.getElementById('newXBtn');
-        const newOBtn = document.getElementById('newOBtn');
+        const newBtn = document.getElementById('newBtn');
+        const newDialog = document.getElementById('newDialog');
+        const firstXBtn = document.getElementById('firstXBtn');
+        const firstOBtn = document.getElementById('firstOBtn');
+        const cancelNewBtn = document.getElementById('cancelNewBtn');
 
         let boards;
         let winners;
@@ -462,14 +513,27 @@
             updateStatus();
         }
 
+        function openNewDialog() {
+            newDialog.classList.add('show');
+        }
+
+        function closeNewDialog() {
+            newDialog.classList.remove('show');
+        }
+
         function confirmNew(firstPlayer) {
-            if (history.length && !confirm('Start a new game?')) return;
+            closeNewDialog();
             reset(firstPlayer);
         }
 
         undoBtn.addEventListener('click', undo);
-        newXBtn.addEventListener('click', () => confirmNew('X'));
-        newOBtn.addEventListener('click', () => confirmNew('O'));
+        newBtn.addEventListener('click', openNewDialog);
+        firstXBtn.addEventListener('click', () => confirmNew('X'));
+        firstOBtn.addEventListener('click', () => confirmNew('O'));
+        cancelNewBtn.addEventListener('click', closeNewDialog);
+        newDialog.addEventListener('click', (e) => {
+            if (e.target === newDialog) closeNewDialog();
+        });
 
         if (loadState()) render();
         else reset('X');
