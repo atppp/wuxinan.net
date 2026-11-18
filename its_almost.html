@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#e8f0ea" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>It's Almost</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,700&family=Sora:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <style>
+    :root {
+      --bg0: #e8f0ea;
+      --bg1: #d5e4dc;
+      --ink: #1a2420;
+      --ink-soft: #4a5c54;
+      --line: rgba(26, 36, 32, 0.12);
+      --accent: #c45a2c;
+      --accent-soft: rgba(196, 90, 44, 0.12);
+      --surface: rgba(255, 255, 255, 0.55);
+      --ok: #1a2420;
+      --pad: clamp(1.25rem, 4.5vw, 2.5rem);
+      --safe-b: env(safe-area-inset-bottom, 0px);
+      --safe-t: env(safe-area-inset-top, 0px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      min-height: 100dvh;
+    }
+
+    body {
+      font-family: "Sora", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(120% 80% at 10% -10%, #f7fbf8 0%, transparent 55%),
+        radial-gradient(90% 70% at 100% 10%, #cfe0d4 0%, transparent 50%),
+        linear-gradient(165deg, var(--bg0), var(--bg1));
+      background-attachment: fixed;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+    }
+
+    .shell {
+      min-height: 100dvh;
+      padding: calc(var(--pad) + var(--safe-t)) var(--pad) calc(var(--pad) + var(--safe-b));
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 42rem;
+      margin: 0 auto;
+    }
+
+    .brand {
+      font-family: "Literata", serif;
+      font-weight: 700;
+      font-size: clamp(2.6rem, 11vw, 4.4rem);
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.55rem;
+      animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .lede {
+      color: var(--ink-soft);
+      font-size: clamp(0.95rem, 3.4vw, 1.1rem);
+      line-height: 1.45;
+      max-width: 28rem;
+      margin-bottom: clamp(1.75rem, 6vw, 2.75rem);
+      animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+    }
+
+    .event-name {
+      font-family: "Literata", serif;
+      font-weight: 700;
+      font-size: clamp(1.7rem, 7vw, 2.6rem);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: var(--accent);
+      margin-bottom: clamp(1.4rem, 5vw, 2rem);
+      word-wrap: break-word;
+      overflow-wrap: anywhere;
+      animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+    }
+
+    form {
+      display: grid;
+      gap: 1rem;
+      animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) 140ms both;
+    }
+
+    label {
+      display: grid;
+      gap: 0.4rem;
+      font-size: 0.78rem;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    input[type="text"],
+    input[type="datetime-local"] {
+      width: 100%;
+      appearance: none;
+      -webkit-appearance: none;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      backdrop-filter: blur(8px);
+      border-radius: 0.65rem;
+      padding: 0.95rem 1rem;
+      font: inherit;
+      font-size: 1.05rem;
+      color: var(--ink);
+      min-height: 3.15rem;
+    }
+
+    input[type="datetime-local"] {
+      /* iOS datetime-local is awkward; keep readable */
+      min-height: 3.25rem;
+    }
+
+    input:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-color: transparent;
+    }
+
+    .actions {
+      display: grid;
+      gap: 0.75rem;
+      margin-top: 0.35rem;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 600;
+      border-radius: 0.65rem;
+      min-height: 3.25rem;
+      padding: 0.95rem 1.25rem;
+      transition: transform 160ms ease, background 160ms ease, color 160ms ease;
+    }
+
+    button:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: var(--ink);
+      color: #f4f8f5;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--ink-soft);
+      border: 1px solid var(--line);
+    }
+
+    .countdown {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: clamp(0.45rem, 2.2vw, 0.75rem);
+      animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
+    }
+
+    .unit {
+      text-align: center;
+      padding: clamp(0.75rem, 3vw, 1.1rem) 0.25rem;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .unit .n {
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      font-size: clamp(1.55rem, 7.5vw, 2.6rem);
+      letter-spacing: -0.03em;
+      line-height: 1;
+      color: var(--ink);
+    }
+
+    .unit .l {
+      margin-top: 0.45rem;
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    .past {
+      animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) 160ms both;
+    }
+
+    .past .was {
+      font-size: clamp(1.05rem, 4vw, 1.25rem);
+      color: var(--ink-soft);
+      margin-bottom: 0.65rem;
+    }
+
+    .past .when {
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(1.15rem, 4.5vw, 1.45rem);
+      line-height: 1.35;
+      padding: 1rem 0;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .meta {
+      margin-top: clamp(1.5rem, 5vw, 2.25rem);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem 1rem;
+      align-items: center;
+      animation: rise 700ms cubic-bezier(0.22, 1, 0.36, 1) 220ms both;
+    }
+
+    .hint {
+      font-size: 0.85rem;
+      color: var(--ink-soft);
+      line-height: 1.4;
+    }
+
+    .error {
+      color: var(--accent);
+      font-size: 0.9rem;
+      min-height: 1.25rem;
+    }
+
+    .hidden { display: none !important; }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 360px) {
+      .countdown { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+      .unit { border: 1px solid var(--line); border-radius: 0.5rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <!-- Setup -->
+    <section id="setup" class="hidden" aria-label="Create countdown">
+      <h1 class="brand">It's Almost</h1>
+      <p class="lede">Name an event, pick a local time, and share the link. The countdown runs on whoever opens it.</p>
+      <form id="form" novalidate>
+        <label>
+          Event name
+          <input id="name" type="text" maxlength="120" autocomplete="off" placeholder="Launch day" required />
+        </label>
+        <label>
+          When <span style="text-transform:none;letter-spacing:0;font-weight:400">(your local time)</span>
+          <input id="when" type="datetime-local" required />
+        </label>
+        <p class="error" id="form-error" role="alert"></p>
+        <div class="actions">
+          <button class="btn-primary" type="submit">Make countdown link</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Live countdown -->
+    <section id="live" class="hidden" aria-live="polite">
+      <h1 class="brand">It's Almost</h1>
+      <p class="event-name" id="live-name"></p>
+      <div class="countdown" aria-label="Time remaining">
+        <div class="unit"><div class="n" id="d">0</div><div class="l">Days</div></div>
+        <div class="unit"><div class="n" id="h">0</div><div class="l">Hours</div></div>
+        <div class="unit"><div class="n" id="m">0</div><div class="l">Mins</div></div>
+        <div class="unit"><div class="n" id="s">0</div><div class="l">Secs</div></div>
+      </div>
+      <div class="meta">
+        <p class="hint" id="live-target"></p>
+        <button type="button" class="btn-ghost" id="btn-new" style="min-height:2.6rem;padding:0.55rem 0.9rem;font-size:0.9rem">New event</button>
+        <button type="button" class="btn-ghost" id="btn-copy" style="min-height:2.6rem;padding:0.55rem 0.9rem;font-size:0.9rem">Copy link</button>
+      </div>
+    </section>
+
+    <!-- Past -->
+    <section id="past" class="hidden past" aria-live="polite">
+      <h1 class="brand" id="past-brand"></h1>
+      <p class="was">was</p>
+      <p class="when" id="past-when"></p>
+      <div class="meta">
+        <button type="button" class="btn-ghost" id="btn-new-past" style="min-height:2.6rem;padding:0.55rem 0.9rem;font-size:0.9rem">New event</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const $ = (id) => document.getElementById(id);
+      const setupEl = $("setup");
+      const liveEl = $("live");
+      const pastEl = $("past");
+      const form = $("form");
+      const nameInput = $("name");
+      const whenInput = $("when");
+      const formError = $("form-error");
+
+      let tickTimer = null;
+      let current = null; // { name, utcMs }
+
+      // Hash form: #{unix-seconds}-{url-encoded event name}
+      function encodeState(name, utcMs) {
+        const unix = Math.floor(utcMs / 1000);
+        return "#" + unix + "-" + encodeURIComponent(name);
+      }
+
+      function decodeState(hash) {
+        if (!hash || hash === "#") return null;
+        const raw = hash.startsWith("#") ? hash.slice(1) : hash;
+        const dash = raw.indexOf("-");
+        if (dash <= 0) return null;
+        const unix = Number(raw.slice(0, dash));
+        if (!Number.isFinite(unix)) return null;
+        let name;
+        try {
+          name = decodeURIComponent(raw.slice(dash + 1)).trim();
+        } catch {
+          return null;
+        }
+        if (!name) return null;
+        return { name, utcMs: unix * 1000 };
+      }
+
+      function formatLocal(utcMs) {
+        return new Intl.DateTimeFormat(undefined, {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          timeZoneName: "short",
+        }).format(new Date(utcMs));
+      }
+
+      function pad(n) {
+        return String(Math.max(0, n)).padStart(2, "0");
+      }
+
+      function show(view) {
+        setupEl.classList.toggle("hidden", view !== "setup");
+        liveEl.classList.toggle("hidden", view !== "live");
+        pastEl.classList.toggle("hidden", view !== "past");
+      }
+
+      function clearTick() {
+        if (tickTimer) {
+          clearInterval(tickTimer);
+          tickTimer = null;
+        }
+      }
+
+      function renderCountdown(remainingMs) {
+        const totalSec = Math.max(0, Math.floor(remainingMs / 1000));
+        const d = Math.floor(totalSec / 86400);
+        const h = Math.floor((totalSec % 86400) / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        $("d").textContent = String(d);
+        $("h").textContent = pad(h);
+        $("m").textContent = pad(m);
+        $("s").textContent = pad(s);
+      }
+
+      function celebrate() {
+        if (typeof confetti !== "function") return;
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        const colors = ["#c45a2c", "#1a2420", "#7a9a86", "#f4f8f5"];
+        confetti({ particleCount: 90, spread: 55, origin: { y: 0.65 }, colors });
+        setTimeout(() => {
+          confetti({ particleCount: 50, angle: 60, spread: 55, origin: { x: 0, y: 0.7 }, colors });
+          confetti({ particleCount: 50, angle: 120, spread: 55, origin: { x: 1, y: 0.7 }, colors });
+        }, 180);
+      }
+
+      function renderPast(state) {
+        clearTick();
+        $("past-brand").textContent = state.name;
+        $("past-when").textContent = formatLocal(state.utcMs);
+        document.title = state.name + " was";
+        show("past");
+      }
+
+      function renderLive(state) {
+        $("live-name").textContent = state.name;
+        $("live-target").textContent = formatLocal(state.utcMs);
+        document.title = "It's Almost " + state.name;
+        show("live");
+
+        const tick = () => {
+          const remaining = state.utcMs - Date.now();
+          if (remaining <= 0) {
+            renderPast(state);
+            celebrate(); // only when countdown crosses zero, not on already-past links
+            return;
+          }
+          renderCountdown(remaining);
+        };
+        clearTick();
+        tick();
+        tickTimer = setInterval(tick, 250);
+      }
+
+      function applyState(state) {
+        current = state;
+        if (!state) {
+          clearTick();
+          document.title = "It's Almost";
+          show("setup");
+          return;
+        }
+        if (state.utcMs <= Date.now()) renderPast(state);
+        else renderLive(state);
+      }
+
+      function goSetup() {
+        history.pushState(null, "", location.pathname + location.search);
+        applyState(null);
+        nameInput.focus();
+      }
+
+      function defaultLocalValue() {
+        // Round up to the next whole hour (e.g. 8:13 → 9:00; 9:00 → 10:00)
+        const d = new Date();
+        d.setMinutes(0, 0, 0);
+        d.setHours(d.getHours() + 1);
+        const off = d.getTimezoneOffset();
+        const local = new Date(d.getTime() - off * 60000);
+        return local.toISOString().slice(0, 16);
+      }
+
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        formError.textContent = "";
+        const name = nameInput.value.trim();
+        const localVal = whenInput.value;
+        if (!name) {
+          formError.textContent = "Give the event a name.";
+          nameInput.focus();
+          return;
+        }
+        if (!localVal) {
+          formError.textContent = "Pick a date and time.";
+          whenInput.focus();
+          return;
+        }
+        // datetime-local is wall time in the browser's local zone
+        const utcMs = new Date(localVal).getTime();
+        if (!Number.isFinite(utcMs)) {
+          formError.textContent = "That time doesn’t look valid.";
+          return;
+        }
+        const hash = encodeState(name, utcMs);
+        history.pushState(null, "", hash);
+        applyState({ name, utcMs });
+      });
+
+      $("btn-new").addEventListener("click", goSetup);
+      $("btn-new-past").addEventListener("click", goSetup);
+
+      $("btn-copy").addEventListener("click", async () => {
+        const url = location.href;
+        try {
+          await navigator.clipboard.writeText(url);
+          $("btn-copy").textContent = "Copied";
+          setTimeout(() => { $("btn-copy").textContent = "Copy link"; }, 1400);
+        } catch {
+          window.prompt("Copy this link:", url);
+        }
+      });
+
+      window.addEventListener("hashchange", () => {
+        applyState(decodeState(location.hash));
+      });
+
+      window.addEventListener("popstate", () => {
+        applyState(decodeState(location.hash));
+      });
+
+      // Boot
+      whenInput.value = defaultLocalValue();
+      applyState(decodeState(location.hash));
+    })();
+  </script>
+</body>
+</html>
